@@ -358,26 +358,63 @@ export default function Homepage() {
                 <Calendar className="h-5 w-5 mr-3 text-primary" />
                 Takvim
               </h3>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigateMonth('prev')}
-                  className="h-8 w-8 p-0 hover:bg-primary/10"
+              
+              {/* Rapor Gönder Button - Moved to highlighted area */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    if (reportActivated) {
+                      setShowReportModal(true);
+                    }
+                  }}
+                  className="relative bg-blue-500/15 hover:bg-blue-500/25 backdrop-blur-sm border-2 border-blue-500/40 hover:border-blue-400/60 text-blue-400 hover:text-blue-300 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 group"
+                  data-testid="button-report-send"
+                  style={{
+                    boxShadow: reportActivated 
+                      ? '0 0 20px rgba(59, 130, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.1)' 
+                      : '0 0 15px rgba(59, 130, 246, 0.3)'
+                  }}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="text-sm font-medium text-muted-foreground px-3 py-1 bg-muted/50 rounded-full min-w-[140px] text-center">
-                  {new Date(displayYear, displayMonth).toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm font-bold">Rapor Gönder</span>
+                  <Send className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                  
+                  {/* Red/Green Activation Circle */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReportActivated(!reportActivated);
+                    }}
+                    className={`absolute -top-1 -right-1 w-4 h-4 rounded-full transition-all duration-300 transform cursor-pointer ${
+                      reportActivated 
+                        ? 'bg-green-500 shadow-lg shadow-green-500/50 scale-110' 
+                        : 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse hover:scale-110'
+                    }`}
+                    data-testid="button-report-activate"
+                  />
+                </button>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigateMonth('prev')}
+                    className="h-8 w-8 p-0 hover:bg-primary/10"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm font-medium text-muted-foreground px-3 py-1 bg-muted/50 rounded-full min-w-[140px] text-center">
+                    {new Date(displayYear, displayMonth).toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigateMonth('next')}
+                    className="h-8 w-8 p-0 hover:bg-primary/10"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigateMonth('next')}
-                  className="h-8 w-8 p-0 hover:bg-primary/10"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
@@ -432,57 +469,6 @@ export default function Homepage() {
               </div>
             </div>
 
-            {/* Transparent Purple Glowing Report Button */}
-            <div className="mt-4 flex justify-center">
-              <button
-                onClick={() => {
-                  if (reportActivated) {
-                    setShowReportModal(true);
-                  }
-                }}
-                className="relative bg-purple-500/10 hover:bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3 group"
-                data-testid="button-report-send"
-                style={{
-                  boxShadow: reportActivated 
-                    ? '0 0 20px rgba(147, 51, 234, 0.3), 0 0 40px rgba(147, 51, 234, 0.1)' 
-                    : '0 0 15px rgba(147, 51, 234, 0.2)'
-                }}
-              >
-                <FileText className="h-5 w-5" />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-bold">Rapor Gönder</span>
-                  <span className="text-xs text-purple-400">
-                    Ay Sonuna Kalan Süre: {getDaysUntilMonthEnd()} gün
-                  </span>
-                </div>
-                <Send className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                
-                {/* Red/Green Activation Circle Inside Button */}
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setReportActivated(!reportActivated);
-                  }}
-                  className={`absolute -top-1 -right-1 w-5 h-5 rounded-full transition-all duration-300 transform cursor-pointer ${
-                    reportActivated 
-                      ? 'bg-green-500 shadow-lg shadow-green-500/50 scale-110' 
-                      : 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse hover:scale-110'
-                  }`}
-                  data-testid="button-report-activate"
-                >
-                  <div className={`w-full h-full rounded-full ${
-                    reportActivated 
-                      ? 'bg-green-400' 
-                      : 'bg-red-400 animate-ping'
-                  }`}></div>
-                  {reportActivated && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Zap className="h-2.5 w-2.5 text-white" />
-                    </div>
-                  )}
-                </div>
-              </button>
-            </div>
 
             {/* Enhanced Interactive Calendar Report Panel */}
             {selectedDate && (
