@@ -3,9 +3,10 @@ import { Header } from "@/components/header";
 import { EnhancedWeatherWidget } from "@/components/enhanced-weather-widget";
 import { CountdownWidget } from "@/components/countdown-widget";
 import { TodaysTasksWidget } from "@/components/todays-tasks-widget";
-import { Calendar, TrendingUp, Clock } from "lucide-react";
+import { Calendar, TrendingUp, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Task } from "@shared/schema";
+import { Task, QuestionLog, ExamResult } from "@shared/schema";
+import { Button } from "@/components/ui/button";
 
 // Centered Welcome Section Component with Clock
 function CenteredWelcomeSection() {
@@ -96,6 +97,11 @@ function CenteredWelcomeSection() {
 
 export default function Homepage() {
   const [selectedDate, setSelectedDate] = useState<string>("");
+  
+  // State for calendar navigation (separate from current date)
+  const currentDate = new Date();
+  const [displayYear, setDisplayYear] = useState(currentDate.getFullYear());
+  const [displayMonth, setDisplayMonth] = useState(currentDate.getMonth());
 
   const { data: calendarData } = useQuery<{
     date: string;
@@ -114,12 +120,26 @@ export default function Homepage() {
     enabled: !!selectedDate,
   });
 
-  // Generate calendar for current month
-  const currentDate = new Date();
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  // Fetch all tasks, question logs, and exam results to check for activities
+  const { data: allTasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/tasks"],
+  });
+  
+  const { data: questionLogs = [] } = useQuery<QuestionLog[]>({
+    queryKey: ["/api/question-logs"],
+  });
+  
+  const { data: examResults = [] } = useQuery<ExamResult[]>({
+    queryKey: ["/api/exam-results"],
+  });
+
+  // Generate calendar for display month/year
+  const year = displayYear;
+  const month = displayMonth;
   const firstDay = new Date(year, month, 1);
   const today = currentDate.getDate();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
 
   // Start from Monday (fix week alignment)
   const startOffset = (firstDay.getDay() + 6) % 7;
@@ -131,6 +151,66 @@ export default function Homepage() {
     date.setDate(startDate.getDate() + i);
     calendarDays.push(date);
   }
+
+  // Navigation functions
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (displayMonth === 0) {
+        setDisplayMonth(11);
+        setDisplayYear(displayYear - 1);
+      } else {
+        setDisplayMonth(displayMonth - 1);
+      }
+    } else {
+      if (displayMonth === 11) {
+        setDisplayMonth(0);
+        setDisplayYear(displayYear + 1);
+      } else {
+        setDisplayMonth(displayMonth + 1);
+      }
+    }
+  };
+
+  // Check if a date has activities (completed tasks, question logs, or exam results)
+  const hasActivities = (date: Date) => {
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    
+    // Check completed tasks
+    const hasCompletedTasks = allTasks.some(task => {
+      if (!task.completedAt) return false;
+      const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
+      return completedDate === dateStr;
+    });
+    
+    // Check question logs
+    const hasQuestionLogs = questionLogs.some(log => log.study_date === dateStr);
+    
+    // Check exam results
+    const hasExamResults = examResults.some(exam => exam.exam_date === dateStr);
+    
+    return hasCompletedTasks || hasQuestionLogs || hasExamResults;
+  };
+
+  // Get activities for a specific date
+  const getActivitiesForDate = (date: Date) => {
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    
+    const completedTasks = allTasks.filter(task => {
+      if (!task.completedAt) return false;
+      const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
+      return completedDate === dateStr;
+    });
+    
+    const dayQuestionLogs = questionLogs.filter(log => log.study_date === dateStr);
+    const dayExamResults = examResults.filter(exam => exam.exam_date === dateStr);
+    
+    return {
+      tasks: completedTasks,
+      questionLogs: dayQuestionLogs,
+      examResults: dayExamResults,
+      total: completedTasks.length + dayQuestionLogs.length + dayExamResults.length
+    };
+  };
 
   const handleDateClick = (date: Date) => {
     // Fix: Use the actual date without timezone issues
@@ -162,8 +242,26 @@ export default function Homepage() {
                 <Calendar className="h-5 w-5 mr-3 text-primary" />
                 Takvim
               </h3>
-              <div className="text-sm font-medium text-muted-foreground px-3 py-1 bg-muted/50 rounded-full">
-                {currentDate.toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('prev')}
+                  className="h-8 w-8 p-0 hover:bg-primary/10"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium text-muted-foreground px-3 py-1 bg-muted/50 rounded-full min-w-[140px] text-center">
+                  {new Date(displayYear, displayMonth).toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('next')}
+                  className="h-8 w-8 p-0 hover:bg-primary/10"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
@@ -182,18 +280,19 @@ export default function Homepage() {
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((date, index) => {
                   const isCurrentMonth = date.getMonth() === month;
-                  const isToday = date.getDate() === today && isCurrentMonth;
+                  const isToday = date.getDate() === today && isCurrentMonth && displayYear === currentYear && displayMonth === currentMonth;
                   const year = date.getFullYear();
                   const month_num = (date.getMonth() + 1).toString().padStart(2, '0');
                   const day = date.getDate().toString().padStart(2, '0');
                   const dateStr = `${year}-${month_num}-${day}`;
                   const isSelected = selectedDate === dateStr;
+                  const dayHasActivities = hasActivities(date);
                   
                   return (
                     <button
                       key={index}
                       onClick={() => handleDateClick(date)}
-                      className={`relative aspect-square flex items-center justify-center text-sm font-medium rounded-xl transition-all duration-200 transform hover:scale-105 ${
+                      className={`relative aspect-square flex flex-col items-center justify-center text-sm font-medium rounded-xl transition-all duration-200 transform hover:scale-105 ${
                         isToday
                           ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25 scale-105"
                           : isSelected
@@ -204,7 +303,10 @@ export default function Homepage() {
                       }`}
                       data-testid={`calendar-day-${date.getDate()}`}
                     >
-                      {date.getDate()}
+                      <span>{date.getDate()}</span>
+                      {dayHasActivities && isCurrentMonth && (
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-0.5"></div>
+                      )}
                       {isToday && (
                         <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
                       )}
@@ -215,7 +317,7 @@ export default function Homepage() {
             </div>
 
             {/* Modern Selected Date Info */}
-            {selectedDate && calendarData && (
+            {selectedDate && (
               <div className="mt-6 p-5 bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl border border-border/30 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-bold text-lg text-foreground flex items-center">
@@ -223,34 +325,101 @@ export default function Homepage() {
                     {new Date(selectedDate + 'T12:00:00').getDate()}. Gün
                   </h4>
                   <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                    {calendarData.daysRemaining > 0 
+                    {calendarData?.daysRemaining > 0 
                       ? `${calendarData.daysRemaining} gün sonra` 
-                      : calendarData.daysRemaining === 0 
+                      : calendarData?.daysRemaining === 0 
                       ? "Bugün" 
-                      : `${Math.abs(calendarData.daysRemaining)} gün önce`}
+                      : `${Math.abs(calendarData?.daysRemaining || 0)} gün önce`}
                   </span>
                 </div>
-                <div className="flex items-center mb-3">
-                  <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                  <p className="text-sm font-medium text-foreground">
-                    {calendarData.tasksCount} görev planlanmış
-                  </p>
-                </div>
-                {calendarData.tasks && calendarData.tasks.length > 0 && (
-                  <div className="space-y-2">
-                    {calendarData.tasks.slice(0, 3).map((task: Task) => (
-                      <div key={task.id} className="flex items-center text-sm text-muted-foreground">
-                        <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mr-3"></div>
-                        {task.title}
-                      </div>
-                    ))}
-                    {calendarData.tasks.length > 3 && (
-                      <div className="text-xs text-muted-foreground italic">
-                        ve {calendarData.tasks.length - 3} görev daha...
-                      </div>
-                    )}
-                  </div>
-                )}
+                
+                {(() => {
+                  const selectedDateObj = new Date(selectedDate + 'T12:00:00');
+                  const today = new Date();
+                  const isPastDate = selectedDateObj < today;
+                  const activities = getActivitiesForDate(selectedDateObj);
+                  
+                  if (isPastDate) {
+                    // Show completed activities for past dates
+                    if (activities.total === 0) {
+                      return (
+                        <div className="flex items-center mb-3">
+                          <TrendingUp className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Bu gün hiç aktivite yapılmamış
+                          </p>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <div className="flex items-center mb-3">
+                            <TrendingUp className="h-4 w-4 mr-2 text-primary" />
+                            <p className="text-sm font-medium text-foreground">
+                              {activities.total} aktivite yapıldı
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {/* Show completed tasks */}
+                            {activities.tasks.slice(0, 3).map((task: Task) => (
+                              <div key={task.id} className="flex items-center text-sm text-muted-foreground">
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-3"></div>
+                                Görev: {task.title}
+                              </div>
+                            ))}
+                            {/* Show question logs */}
+                            {activities.questionLogs.slice(0, 3 - activities.tasks.length).map((log: QuestionLog) => (
+                              <div key={log.id} className="flex items-center text-sm text-muted-foreground">
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3"></div>
+                                Soru: {log.exam_type} {log.subject} - {log.correct_count} doğru
+                              </div>
+                            ))}
+                            {/* Show exam results */}
+                            {activities.examResults.slice(0, 3 - activities.tasks.length - activities.questionLogs.length).map((exam: ExamResult) => (
+                              <div key={exam.id} className="flex items-center text-sm text-muted-foreground">
+                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-3"></div>
+                                Deneme: {exam.exam_name}
+                              </div>
+                            ))}
+                            {activities.total > 3 && (
+                              <button className="text-xs font-medium text-purple-600 hover:text-purple-700 bg-purple-100 hover:bg-purple-200 px-3 py-1 rounded-full transition-colors duration-200 mt-2">
+                                Tüm Aktiviteleri Gör ({activities.total})
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      );
+                    }
+                  } else {
+                    // Show planned tasks for future dates
+                    return (
+                      <>
+                        <div className="flex items-center mb-3">
+                          <TrendingUp className="h-4 w-4 mr-2 text-primary" />
+                          <p className="text-sm font-medium text-foreground">
+                            {calendarData?.tasksCount || 0} görev planlanmış
+                          </p>
+                        </div>
+                        {calendarData?.tasks && calendarData.tasks.length > 0 && (
+                          <div className="space-y-2">
+                            {calendarData.tasks.slice(0, 3).map((task: Task) => (
+                              <div key={task.id} className="flex items-center text-sm text-muted-foreground">
+                                <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mr-3"></div>
+                                {task.title}
+                              </div>
+                            ))}
+                            {calendarData.tasks.length > 3 && (
+                              <div className="text-xs text-muted-foreground italic">
+                                ve {calendarData.tasks.length - 3} görev daha...
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  }
+                })()
+                }
               </div>
             )}
           </div>
