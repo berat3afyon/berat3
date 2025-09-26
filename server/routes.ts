@@ -1226,7 +1226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </head>
         <body>
             <div class="header">
-                <h1>📊 Aylık Aktivite Raporu</h1>
+                <h1>Aylık Aktivite Raporu</h1>
                 <p><strong>${month}</strong> - Rapor Tarihi: ${date}</p>
                 <p>Berat Çakıroğlu için hazırlanmıştır</p>
             </div>
@@ -1252,7 +1252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             ${activities.tasks.length > 0 ? `
             <div style="margin: 30px 0;">
-                <h2 style="color: #22C55E;">✅ Tamamlanan Görevler</h2>
+                <h2 style="color: #22C55E;">Tamamlanan Görevler</h2>
                 <ul>
                     ${activities.tasks.map((task: any) => `
                         <li><strong>${task.title}</strong> - ${task.category} 
@@ -1265,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             ${activities.questionLogs.length > 0 ? `
             <div style="margin: 30px 0;">
-                <h2 style="color: #3B82F6;">📝 Çözülen Sorular</h2>
+                <h2 style="color: #3B82F6;">Çözülen Sorular</h2>
                 <ul>
                     ${activities.questionLogs.map((log: any) => `
                         <li><strong>${log.exam_type} - ${log.subject}</strong>: ${log.correct_count} doğru / ${log.total_questions} soru
@@ -1291,7 +1291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             <div class="footer">
                 <p>Bu rapor TYT/AYT Takip Uygulaması tarafından otomatik olarak oluşturulmuştur.</p>
-                <p>📧 Rapor ${new Date().toLocaleDateString('tr-TR', { 
+                <p>Rapor ${new Date().toLocaleDateString('tr-TR', { 
                     day: 'numeric', 
                     month: 'long', 
                     year: 'numeric',
@@ -1314,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let yPosition = height - 50;
       
       // Header
-      page.drawText('📊 Aylık Aktivite Raporu', {
+      page.drawText('Aylik Aktivite Raporu', {
         x: 50,
         y: yPosition,
         size: 24,
@@ -1332,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       yPosition -= 20;
       
-      page.drawText('Berat Çakıroğlu için hazırlanmıştır', {
+      page.drawText('Berat Cakiroglu icin hazirlanmistir', {
         x: 50,
         y: yPosition,
         size: 12,
@@ -1390,7 +1390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Detailed sections
       if (activities.tasks.length > 0) {
         yPosition -= 20;
-        page.drawText('✅ Tamamlanan Görevler', {
+        page.drawText('Tamamlanan Görevler', {
           x: 50,
           y: yPosition,
           size: 16,
@@ -1416,7 +1416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (activities.questionLogs.length > 0 && yPosition > 100) {
         yPosition -= 20;
-        page.drawText('📝 Çözülen Sorular', {
+        page.drawText('Çözülen Sorular', {
           x: 50,
           y: yPosition,
           size: 16,
@@ -1472,7 +1472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const msg = {
         to: email,
         from: 'noreply@tytayt.app', // Replace with your verified sender
-        subject: `📊 ${month} Aylık Aktivite Raporu - TYT/AYT Takip`,
+        subject: `${month} Aylık Aktivite Raporu - TYT/AYT Takip`,
         html: htmlContent,
         text: `${month} Aylık Aktivite Raporu\n\nToplam Aktivite: ${activities.total}\n- Tamamlanan Görev: ${activities.tasks.length}\n- Çözülen Soru: ${activities.questionLogs.length}\n- Yapılan Deneme: ${activities.examResults.length}\n\nDetaylı rapor için ekteki PDF dosyasını kontrol edin.`,
         attachments: [
