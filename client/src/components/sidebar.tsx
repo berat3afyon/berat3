@@ -1,11 +1,24 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Task } from "@shared/schema";
+import { Clock } from "lucide-react";
 
 export function Sidebar() {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
+
+  // Real-time clock state
+  const [currentTime, setCurrentTime] = React.useState(new Date());
+
+  // Update time every second
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(task => task.completed).length;
@@ -107,6 +120,20 @@ export function Sidebar() {
           <div className="text-sm text-muted-foreground" data-testid="text-current-date">{currentMonth}</div>
           <div className="text-xs text-muted-foreground" data-testid="text-current-weekday">{currentWeekday}</div>
         </div>
+        
+        {/* Clock Display - Centered with Clock Icon */}
+        <div className="flex items-center justify-center gap-2 mb-4 p-3 border border-border rounded-lg bg-secondary/30" data-testid="clock-display">
+          <Clock className="w-5 h-5 text-primary" />
+          <div className="text-lg font-mono font-semibold text-foreground" data-testid="text-current-time">
+            {currentTime.toLocaleTimeString('tr-TR', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit',
+              hour12: false 
+            })}
+          </div>
+        </div>
+        
         {/* Mini Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 text-xs">
           <div className="text-center text-muted-foreground p-1">P</div>
