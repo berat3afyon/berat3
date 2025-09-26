@@ -314,110 +314,216 @@ export default function Homepage() {
               </div>
             </div>
 
-            {/* Modern Selected Date Info */}
+            {/* Enhanced Interactive Calendar Report Panel */}
             {selectedDate && (
-              <div className="mt-6 p-5 bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl border border-border/30 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-bold text-lg text-foreground flex items-center">
-                    <div className="w-3 h-3 bg-primary rounded-full mr-2 animate-pulse"></div>
-                    {new Date(selectedDate + 'T12:00:00').getDate()}. Gün
-                  </h4>
-                  <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                    {calendarData?.daysRemaining > 0 
-                      ? `${calendarData.daysRemaining} gün sonra` 
-                      : calendarData?.daysRemaining === 0 
-                      ? "Bugün" 
-                      : `${Math.abs(calendarData?.daysRemaining || 0)} gün önce`}
-                  </span>
-                </div>
-                
-                {(() => {
-                  const selectedDateObj = new Date(selectedDate + 'T12:00:00');
-                  const today = new Date();
-                  const isPastDate = selectedDateObj < today;
-                  const activities = getActivitiesForDate(selectedDateObj);
+              <div className="mt-6 space-y-4">
+                {/* Main Date Info Card */}
+                <div className="p-5 bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl border border-border/30 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-bold text-lg text-foreground flex items-center">
+                      <div className="w-3 h-3 bg-primary rounded-full mr-2 animate-pulse"></div>
+                      {new Date(selectedDate + 'T12:00:00').toLocaleDateString('tr-TR', { 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric',
+                        weekday: 'long'
+                      })}
+                    </h4>
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                      {calendarData?.daysRemaining && calendarData.daysRemaining > 0 
+                        ? `${calendarData.daysRemaining} gün sonra` 
+                        : calendarData?.daysRemaining === 0 
+                        ? "Bugün" 
+                        : `${Math.abs(calendarData?.daysRemaining || 0)} gün önce`}
+                    </span>
+                  </div>
                   
-                  if (isPastDate) {
-                    // Show completed activities for past dates
-                    if (activities.total === 0) {
-                      return (
-                        <div className="flex items-center mb-3">
-                          <TrendingUp className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Bu gün hiç aktivite yapılmamış
-                          </p>
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <>
-                          <div className="flex items-center mb-3">
-                            <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                            <p className="text-sm font-medium text-foreground">
-                              {activities.total} aktivite yapıldı
+                  {(() => {
+                    const selectedDateObj = new Date(selectedDate + 'T12:00:00');
+                    const today = new Date();
+                    const isPastDate = selectedDateObj < today;
+                    const activities = getActivitiesForDate(selectedDateObj);
+                    
+                    if (isPastDate) {
+                      // Enhanced Past Date Report
+                      if (activities.total === 0) {
+                        return (
+                          <div className="text-center py-8">
+                            <div className="w-16 h-16 mx-auto mb-4 bg-muted/50 rounded-full flex items-center justify-center">
+                              <TrendingUp className="h-8 w-8 text-muted-foreground/50" />
+                            </div>
+                            <p className="text-sm font-medium text-muted-foreground mb-2">
+                              Bu gün hiç aktivite yapılmamış
+                            </p>
+                            <p className="text-xs text-muted-foreground/70">
+                              Gelecekte daha aktif olmaya çalışalım! 💪
                             </p>
                           </div>
-                          <div className="space-y-2">
-                            {/* Show completed tasks */}
-                            {activities.tasks.slice(0, 3).map((task: Task) => (
-                              <div key={task.id} className="flex items-center text-sm text-muted-foreground">
-                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-3"></div>
-                                Görev: {task.title}
+                        );
+                      } else {
+                        const taskProgress = activities.tasks.length;
+                        const questionProgress = activities.questionLogs.length;
+                        const examProgress = activities.examResults.length;
+                        
+                        return (
+                          <div className="space-y-4">
+                            {/* Activity Summary Cards */}
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{taskProgress}</div>
+                                <div className="text-xs text-green-700 dark:text-green-300">Görev</div>
                               </div>
-                            ))}
-                            {/* Show question logs */}
-                            {activities.questionLogs.slice(0, 3 - activities.tasks.length).map((log: QuestionLog) => (
-                              <div key={log.id} className="flex items-center text-sm text-muted-foreground">
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3"></div>
-                                Soru: {log.exam_type} {log.subject} - {log.correct_count} doğru
+                              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{questionProgress}</div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">Soru</div>
                               </div>
-                            ))}
-                            {/* Show exam results */}
-                            {activities.examResults.slice(0, 3 - activities.tasks.length - activities.questionLogs.length).map((exam: ExamResult) => (
-                              <div key={exam.id} className="flex items-center text-sm text-muted-foreground">
-                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-3"></div>
-                                Deneme: {exam.exam_name}
+                              <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{examProgress}</div>
+                                <div className="text-xs text-purple-700 dark:text-purple-300">Deneme</div>
                               </div>
-                            ))}
-                            {activities.total > 3 && (
-                              <button className="text-xs font-medium text-purple-600 hover:text-purple-700 bg-purple-100 hover:bg-purple-200 px-3 py-1 rounded-full transition-colors duration-200 mt-2">
-                                Tüm Aktiviteleri Gör ({activities.total})
-                              </button>
-                            )}
+                            </div>
+
+                            {/* Total Activity Progress */}
+                            <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-foreground">Günlük Performans</span>
+                                <span className="text-lg font-bold text-primary">{activities.total}</span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-primary to-primary/80 h-2 rounded-full transition-all duration-500" 
+                                  style={{ width: `${Math.min((activities.total / 10) * 100, 100)}%` }}
+                                ></div>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {activities.total >= 10 ? "Müthiş bir gün! 🎉" : activities.total >= 5 ? "İyi gidiyor! 👍" : "Daha fazla çalışabiliriz! 💪"}
+                              </div>
+                            </div>
+
+                            {/* Detailed Activity List */}
+                            <div className="space-y-2">
+                              <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center">
+                                <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
+                                Aktivite Detayları
+                              </h5>
+                              {/* Show completed tasks */}
+                              {activities.tasks.slice(0, 3).map((task: Task) => (
+                                <div key={task.id} className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950/10 rounded-lg">
+                                  <div className="flex items-center text-sm">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                                    <span className="font-medium">Görev:</span>
+                                    <span className="ml-2 text-muted-foreground">{task.title}</span>
+                                  </div>
+                                  <div className="text-xs text-green-600 bg-green-100 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                                    ✓ Tamamlandı
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {/* Show question logs */}
+                              {activities.questionLogs.slice(0, 3 - activities.tasks.length).map((log: QuestionLog) => (
+                                <div key={log.id} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-950/10 rounded-lg">
+                                  <div className="flex items-center text-sm">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                                    <span className="font-medium">Soru:</span>
+                                    <span className="ml-2 text-muted-foreground">{log.exam_type} {log.subject}</span>
+                                  </div>
+                                  <div className="text-xs text-blue-600 bg-blue-100 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+                                    {log.correct_count} doğru
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {/* Show exam results */}
+                              {activities.examResults.slice(0, 3 - activities.tasks.length - activities.questionLogs.length).map((exam: ExamResult) => (
+                                <div key={exam.id} className="flex items-center justify-between p-2 bg-purple-50 dark:bg-purple-950/10 rounded-lg">
+                                  <div className="flex items-center text-sm">
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                                    <span className="font-medium">Deneme:</span>
+                                    <span className="ml-2 text-muted-foreground">{exam.exam_name}</span>
+                                  </div>
+                                  <div className="text-xs text-purple-600 bg-purple-100 dark:bg-purple-900/20 px-2 py-1 rounded-full">
+                                    TYT: {exam.tyt_net} | AYT: {exam.ayt_net}
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {activities.total > 3 && (
+                                <button className="w-full text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-4 py-3 rounded-lg transition-colors duration-200 mt-3 border border-primary/20">
+                                  Tüm Aktiviteleri Görüntüle ({activities.total} toplam)
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </>
+                        );
+                      }
+                    } else {
+                      // Enhanced Future Date Planning
+                      return (
+                        <div className="space-y-4">
+                          {/* Planning Summary */}
+                          <div className="bg-gradient-to-r from-accent/5 to-accent/10 rounded-lg p-4 border border-accent/20">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-foreground">Planlanan Aktiviteler</span>
+                              <span className="text-lg font-bold text-accent">{calendarData?.tasksCount || 0}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {(calendarData?.tasksCount || 0) === 0 
+                                ? "Henüz bu güne özel görev planlanmamış" 
+                                : `${calendarData?.tasksCount || 0} görev bu güne planlandı`}
+                            </div>
+                          </div>
+
+                          {/* Planned Tasks */}
+                          {calendarData?.tasks && calendarData.tasks.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center">
+                                <div className="w-2 h-2 bg-accent rounded-full mr-2"></div>
+                                Planlanan Görevler
+                              </h5>
+                              {calendarData.tasks.slice(0, 3).map((task: Task) => (
+                                <div key={task.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/10">
+                                  <div className="flex items-center text-sm">
+                                    <div className="w-2 h-2 bg-accent/60 rounded-full mr-3"></div>
+                                    <span className="font-medium text-foreground">{task.title}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="text-xs text-accent bg-accent/10 px-2 py-1 rounded-full">
+                                      {task.priority === 'high' ? '🔴 Yüksek' : task.priority === 'medium' ? '🟡 Orta' : '🟢 Düşük'}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {task.category}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              {calendarData.tasks.length > 3 && (
+                                <div className="text-center">
+                                  <button className="text-xs font-medium text-accent hover:text-accent/80 bg-accent/10 hover:bg-accent/20 px-4 py-2 rounded-lg transition-colors duration-200">
+                                    {calendarData.tasks.length - 3} görev daha göster
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Quick Actions for Future Dates */}
+                          <div className="border-t border-border/50 pt-4">
+                            <div className="flex gap-2">
+                              <button className="flex-1 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-lg transition-colors duration-200">
+                                + Görev Ekle
+                              </button>
+                              <button className="flex-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-3 py-2 rounded-lg transition-colors duration-200">
+                                📅 Takvime Ekle
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       );
                     }
-                  } else {
-                    // Show planned tasks for future dates
-                    return (
-                      <>
-                        <div className="flex items-center mb-3">
-                          <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                          <p className="text-sm font-medium text-foreground">
-                            {calendarData?.tasksCount || 0} görev planlanmış
-                          </p>
-                        </div>
-                        {calendarData?.tasks && calendarData.tasks.length > 0 && (
-                          <div className="space-y-2">
-                            {calendarData.tasks.slice(0, 3).map((task: Task) => (
-                              <div key={task.id} className="flex items-center text-sm text-muted-foreground">
-                                <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mr-3"></div>
-                                {task.title}
-                              </div>
-                            ))}
-                            {calendarData.tasks.length > 3 && (
-                              <div className="text-xs text-muted-foreground italic">
-                                ve {calendarData.tasks.length - 3} görev daha...
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
+                  })()
                   }
-                })()
-                }
+                </div>
               </div>
             )}
           </div>
