@@ -562,53 +562,49 @@ export default function Homepage() {
                                 <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
                                 Aktivite Detayları
                               </h5>
-                              {/* Show completed tasks */}
-                              {activities.tasks.slice(0, 3).map((task: Task) => (
-                                <div key={task.id} className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950/10 rounded-lg">
-                                  <div className="flex items-center text-sm">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                                    <span className="font-medium">Görev:</span>
-                                    <span className="ml-2 text-muted-foreground">{task.title}</span>
+                              <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                                {/* Show completed tasks */}
+                                {activities.tasks.map((task: Task) => (
+                                  <div key={task.id} className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950/10 rounded-lg">
+                                    <div className="flex items-center text-sm">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                                      <span className="font-medium">Görev:</span>
+                                      <span className="ml-2 text-muted-foreground">{task.title}</span>
+                                    </div>
+                                    <div className="text-xs text-green-600 bg-green-100 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                                      ✓ Tamamlandı
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-green-600 bg-green-100 dark:bg-green-900/20 px-2 py-1 rounded-full">
-                                    ✓ Tamamlandı
+                                ))}
+                                
+                                {/* Show question logs */}
+                                {activities.questionLogs.map((log: QuestionLog) => (
+                                  <div key={log.id} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-950/10 rounded-lg">
+                                    <div className="flex items-center text-sm">
+                                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                                      <span className="font-medium">Soru:</span>
+                                      <span className="ml-2 text-muted-foreground">{log.exam_type} {log.subject}</span>
+                                    </div>
+                                    <div className="text-xs text-blue-600 bg-blue-100 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+                                      {log.correct_count} doğru
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                              
-                              {/* Show question logs */}
-                              {activities.questionLogs.slice(0, 3 - activities.tasks.length).map((log: QuestionLog) => (
-                                <div key={log.id} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-950/10 rounded-lg">
-                                  <div className="flex items-center text-sm">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                                    <span className="font-medium">Soru:</span>
-                                    <span className="ml-2 text-muted-foreground">{log.exam_type} {log.subject}</span>
+                                ))}
+                                
+                                {/* Show exam results */}
+                                {activities.examResults.map((exam: ExamResult) => (
+                                  <div key={exam.id} className="flex items-center justify-between p-2 bg-purple-50 dark:bg-purple-950/10 rounded-lg">
+                                    <div className="flex items-center text-sm">
+                                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                                      <span className="font-medium">Deneme:</span>
+                                      <span className="ml-2 text-muted-foreground">{exam.exam_name}</span>
+                                    </div>
+                                    <div className="text-xs text-purple-600 bg-purple-100 dark:bg-purple-900/20 px-2 py-1 rounded-full">
+                                      TYT: {exam.tyt_net} | AYT: {exam.ayt_net}
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-blue-600 bg-blue-100 dark:bg-blue-900/20 px-2 py-1 rounded-full">
-                                    {log.correct_count} doğru
-                                  </div>
-                                </div>
-                              ))}
-                              
-                              {/* Show exam results */}
-                              {activities.examResults.slice(0, 3 - activities.tasks.length - activities.questionLogs.length).map((exam: ExamResult) => (
-                                <div key={exam.id} className="flex items-center justify-between p-2 bg-purple-50 dark:bg-purple-950/10 rounded-lg">
-                                  <div className="flex items-center text-sm">
-                                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
-                                    <span className="font-medium">Deneme:</span>
-                                    <span className="ml-2 text-muted-foreground">{exam.exam_name}</span>
-                                  </div>
-                                  <div className="text-xs text-purple-600 bg-purple-100 dark:bg-purple-900/20 px-2 py-1 rounded-full">
-                                    TYT: {exam.tyt_net} | AYT: {exam.ayt_net}
-                                  </div>
-                                </div>
-                              ))}
-                              
-                              {activities.total > 3 && (
-                                <button className="w-full text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-4 py-3 rounded-lg transition-colors duration-200 mt-3 border border-primary/20">
-                                  Tüm Aktiviteleri Görüntüle ({activities.total} toplam)
-                                </button>
-                              )}
+                                ))}
+                              </div>
                             </div>
                           </div>
                         );
