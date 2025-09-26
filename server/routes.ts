@@ -4,7 +4,6 @@ import { storage } from "./storage";
 import { insertTaskSchema, insertMoodSchema, insertGoalSchema, insertQuestionLogSchema, insertExamResultSchema, insertFlashcardSchema, insertExamSubjectNetSchema } from "@shared/schema";
 import { z } from "zod";
 import dotenv from "dotenv";
-import { MailService } from '@sendgrid/mail';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 dotenv.config();
@@ -1221,14 +1220,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/send-report", async (req, res) => {
     try {
       const { month, date, activities, email } = req.body;
-
-      // Initialize SendGrid (but generate PDF regardless)
-      const hasApiKey = !!process.env.SENDGRID_API_KEY;
-      let sgMail: MailService | null = null;
       
-      if (hasApiKey) {
-        sgMail = new MailService();
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+      // Validate required data
+      if (!activities || typeof activities !== 'object') {
+        console.error('Activities data is missing or invalid');
+        return res.status(400).json({ message: "Activities data is required" });
+      }
+      
+      // Ensure activities has required properties with defaults
+      const safeActivities = {
+        tasks: activities.tasks || [],
+        questionLogs: activities.questionLogs || [],
+        examResults: activities.examResults || [],
+        total: activities.total || 0
+      };
+
+      // Initialize Gmail SMTP (if credentials available)
+      const hasGmailCredentials = !!process.env.GMAIL_USER && !!process.env.GMAIL_APP_PASSWORD;
+      let transporter: any = null;
+      
+      if (hasGmailCredentials) {
+        try {
+          transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.GMAIL_USER,
+              pass: process.env.GMAIL_APP_PASSWORD
+            }
+          });
+        } catch (error) {
+          console.error('Failed to create Gmail transporter:', error);
+          return res.status(500).json({ message: "Email configuration error" });
+        }
       }
 
       // Generate HTML content for the PDF report
@@ -1262,28 +1285,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             <div class="summary">
                 <div class="summary-card tasks">
-                    <h3>${activities.tasks.length}</h3>
+                    <h3>${safeActivities.tasks.length}</h3>
                     <p>Tamamlanan Görev</p>
                 </div>
                 <div class="summary-card questions">
-                    <h3>${activities.questionLogs.length}</h3>
+                    <h3>${safeActivities.questionLogs.length}</h3>
                     <p>Çözülen Soru</p>
                 </div>
                 <div class="summary-card exams">
-                    <h3>${activities.examResults.length}</h3>
+                    <h3>${safeActivities.examResults.length}</h3>
                     <p>Yapılan Deneme</p>
                 </div>
                 <div class="summary-card total">
-                    <h3>${activities.total}</h3>
+                    <h3>${safeActivities.total}</h3>
                     <p>Toplam Aktivite</p>
                 </div>
             </div>
 
-            ${activities.tasks.length > 0 ? `
+            ${safeActivities.tasks.length > 0 ? `
             <div style="margin: 30px 0;">
                 <h2 style="color: #22C55E;">Tamamlanan Görevler</h2>
                 <ul>
-                    ${activities.tasks.map((task: any) => `
+                    ${safeActivities.tasks.map((task: any) => `
                         <li><strong>${task.title}</strong> - ${task.category} 
                             ${task.completedAt ? `(${new Date(task.completedAt).toLocaleDateString('tr-TR')})` : ''}
                         </li>
@@ -1292,11 +1315,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             </div>
             ` : ''}
 
-            ${activities.questionLogs.length > 0 ? `
+            ${safeActivities.questionLogs.length > 0 ? `
             <div style="margin: 30px 0;">
                 <h2 style="color: #3B82F6;">Çözülen Sorular</h2>
                 <ul>
-                    ${activities.questionLogs.map((log: any) => `
+                    ${safeActivities.questionLogs.map((log: any) => `
                         <li><strong>${log.exam_type} - ${log.subject}</strong>: ${log.correct_count} doğru / ${log.total_questions} soru
                             (${new Date(log.study_date).toLocaleDateString('tr-TR')})
                         </li>
@@ -1305,11 +1328,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             </div>
             ` : ''}
 
-            ${activities.examResults.length > 0 ? `
+            ${safeActivities.examResults.length > 0 ? `
             <div style="margin: 30px 0;">
                 <h2 style="color: #8B5CF6;">🎯 Yapılan Denemeler</h2>
                 <ul>
-                    ${activities.examResults.map((exam: any) => `
+                    ${safeActivities.examResults.map((exam: any) => `
                         <li><strong>${exam.exam_name}</strong>: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}
                             (${new Date(exam.exam_date).toLocaleDateString('tr-TR')})
                         </li>
@@ -1381,10 +1404,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPosition -= 30;
 
       const summaryData = [
-        { label: convertTurkishChars('Tamamlanan Görev'), value: activities.tasks.length, color: rgb(0.133, 0.773, 0.369) },
-        { label: convertTurkishChars('Çözülen Soru'), value: activities.questionLogs.length, color: rgb(0.231, 0.510, 0.961) },
-        { label: convertTurkishChars('Yapılan Deneme'), value: activities.examResults.length, color: rgb(0.545, 0.361, 0.965) },
-        { label: convertTurkishChars('Toplam Aktivite'), value: activities.total, color: rgb(0.961, 0.620, 0.043) }
+        { label: convertTurkishChars('Tamamlanan Görev'), value: safeActivities.tasks.length, color: rgb(0.133, 0.773, 0.369) },
+        { label: convertTurkishChars('Çözülen Soru'), value: safeActivities.questionLogs.length, color: rgb(0.231, 0.510, 0.961) },
+        { label: convertTurkishChars('Yapılan Deneme'), value: safeActivities.examResults.length, color: rgb(0.545, 0.361, 0.965) },
+        { label: convertTurkishChars('Toplam Aktivite'), value: safeActivities.total, color: rgb(0.961, 0.620, 0.043) }
       ];
 
       summaryData.forEach((item, index) => {
@@ -1417,7 +1440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPosition -= 80;
 
       // Detailed sections
-      if (activities.tasks.length > 0) {
+      if (safeActivities.tasks.length > 0) {
         yPosition -= 20;
         page.drawText(convertTurkishChars('Tamamlanan Görevler'), {
           x: 50,
@@ -1428,7 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         yPosition -= 20;
 
-        activities.tasks.slice(0, 10).forEach((task: any) => {
+        safeActivities.tasks.slice(0, 10).forEach((task: any) => {
           const safeTitle = convertTurkishChars(task.title || '');
           const safeCategory = convertTurkishChars(task.category || '');
           const taskText = convertTurkishChars(`• ${safeTitle} - ${safeCategory}`);
@@ -1445,7 +1468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (activities.questionLogs.length > 0 && yPosition > 100) {
+      if (safeActivities.questionLogs.length > 0 && yPosition > 100) {
         yPosition -= 20;
         page.drawText(convertTurkishChars('Çözülen Sorular'), {
           x: 50,
@@ -1456,7 +1479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         yPosition -= 20;
 
-        activities.questionLogs.slice(0, 10).forEach((log: any) => {
+        safeActivities.questionLogs.slice(0, 10).forEach((log: any) => {
           const safeExamType = convertTurkishChars(log.exam_type || '');
           const safeSubject = convertTurkishChars(log.subject || '');
           const safeCorrectCount = convertTurkishChars(log.correct_count?.toString() || '0');
@@ -1474,7 +1497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (activities.examResults.length > 0 && yPosition > 100) {
+      if (safeActivities.examResults.length > 0 && yPosition > 100) {
         yPosition -= 20;
         page.drawText(convertTurkishChars('Yapılan Denemeler'), {
           x: 50,
@@ -1485,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         yPosition -= 20;
 
-        activities.examResults.slice(0, 10).forEach((exam: any) => {
+        safeActivities.examResults.slice(0, 10).forEach((exam: any) => {
           const safeExamName = convertTurkishChars(exam.exam_name || '');
           const safeTytNet = convertTurkishChars(exam.tyt_net?.toString() || '0');
           const safeAytNet = convertTurkishChars(exam.ayt_net?.toString() || '0');
@@ -1509,31 +1532,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safeMonth = convertTurkishChars(month);
       const safeReportTitle = convertTurkishChars('Aylık Aktivite Raporu');
 
-      // Email message with PDF attachment
-      const msg = {
+      // Email message with PDF attachment for Gmail
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
         to: 'beratkaccow03@gmail.com',
-        from: 'noreply@tytayt.app', // Replace with your verified sender
         subject: `${safeMonth} ${safeReportTitle} - TYT/AYT Takip`,
-        html: convertTurkishChars(htmlContent), // Convert HTML content for complete ASCII consistency
-        text: `${safeMonth} ${safeReportTitle}\n\n${convertTurkishChars('Toplam Aktivite')}: ${activities.total}\n- ${convertTurkishChars('Tamamlanan Görev')}: ${activities.tasks.length}\n- ${convertTurkishChars('Çözülen Soru')}: ${activities.questionLogs.length}\n- ${convertTurkishChars('Yapılan Deneme')}: ${activities.examResults.length}\n\n${convertTurkishChars('Detaylı rapor için ekteki PDF dosyasını kontrol edin.')}.`,
+        html: htmlContent,
+        text: `${safeMonth} ${safeReportTitle}\n\nToplam Aktivite: ${safeActivities.total}\n- Tamamlanan Görev: ${safeActivities.tasks.length}\n- Çözülen Soru: ${safeActivities.questionLogs.length}\n- Yapılan Deneme: ${safeActivities.examResults.length}\n\nDetaylı rapor için ekteki PDF dosyasını kontrol edin.`,
         attachments: [
           {
-            content: Buffer.from(pdfBytes).toString('base64'),
-            filename: `${safeMonth.replace(' ', '-')}-${convertTurkishChars('Aktivite-Raporu')}.pdf`,
-            type: 'application/pdf',
-            disposition: 'attachment',
-          },
-        ],
+            filename: `${safeMonth.replace(' ', '-')}-Aktivite-Raporu.pdf`,
+            content: Buffer.from(pdfBytes),
+            contentType: 'application/pdf'
+          }
+        ]
       };
 
-      if (sgMail) {
-        await sgMail.send(msg);
-        console.log('Report email with PDF sent successfully to beratkaccow03@gmail.com');
-        res.json({ message: "✅ Rapor başarıyla beratkaccow03@gmail.com adresine gönderildi!" });
+      if (transporter) {
+        try {
+          await transporter.sendMail(mailOptions);
+          console.log('Report email with PDF sent successfully via Gmail to beratkaccow03@gmail.com');
+          res.json({ message: "✅ Rapor başarıyla beratkaccow03@gmail.com adresine Gmail üzerinden gönderildi!" });
+        } catch (emailError) {
+          console.error('Gmail email sending failed:', emailError);
+          return res.status(500).json({ message: "E-posta gönderilirken hata oluştu" });
+        }
       } else {
-        console.log('SendGrid API key not found, but PDF was generated successfully');
-        // Since no API key is configured, return success message but note that email is simulated
-        res.json({ message: "✅ Rapor hazırlandı! (Demo modda çalışıyor - gerçek e-posta gönderilemedi)" });
+        console.log('Gmail credentials not found, but PDF was generated successfully');
+        return res.status(500).json({ message: "Gmail ayarları eksik - e-posta gönderilemedi" });
       }
     } catch (error) {
       console.error('Email sending error:', error);
