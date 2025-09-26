@@ -207,13 +207,18 @@ export function Sidebar() {
                 setIsSending(true);
                 
                 try {
+                  // Ensure we have arrays with fallbacks
+                  const safeTasks = Array.isArray(tasks) ? tasks : [];
+                  const safeQuestionLogs = Array.isArray(questionLogs) ? questionLogs : [];
+                  const safeExamResults = Array.isArray(examResults) ? examResults : [];
+                  
                   // Calculate monthly activities
                   const currentMonth = new Date();
                   const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
                   const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
                   
                   // Filter data for current month
-                  const monthlyTasks = tasks.filter(task => {
+                  const monthlyTasks = safeTasks.filter(task => {
                     if (task.completedAt) {
                       const completedDate = new Date(task.completedAt);
                       return completedDate >= startOfMonth && completedDate <= endOfMonth;
@@ -221,14 +226,20 @@ export function Sidebar() {
                     return false;
                   });
 
-                  const monthlyQuestionLogs = (questionLogs as any[]).filter((log: any) => {
-                    const logDate = new Date(log.study_date);
-                    return logDate >= startOfMonth && logDate <= endOfMonth;
+                  const monthlyQuestionLogs = safeQuestionLogs.filter((log: any) => {
+                    if (log.study_date) {
+                      const logDate = new Date(log.study_date);
+                      return logDate >= startOfMonth && logDate <= endOfMonth;
+                    }
+                    return false;
                   });
 
-                  const monthlyExamResults = (examResults as any[]).filter((exam: any) => {
-                    const examDate = new Date(exam.exam_date);
-                    return examDate >= startOfMonth && examDate <= endOfMonth;
+                  const monthlyExamResults = safeExamResults.filter((exam: any) => {
+                    if (exam.exam_date) {
+                      const examDate = new Date(exam.exam_date);
+                      return examDate >= startOfMonth && examDate <= endOfMonth;
+                    }
+                    return false;
                   });
 
                   const monthlyActivities = {
