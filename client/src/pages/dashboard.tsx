@@ -809,9 +809,10 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Question Logs List with Edit/Delete */}
-                  <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {questionLogs.slice(0, 10).map((log, index) => (
+                  {/* Question Logs List with Edit/Delete - Limited to 3 items */}
+                  <div className="space-y-3">
+                    <div className={`space-y-3 ${questionLogs.length > 3 ? 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent' : ''}`}>
+                      {questionLogs.slice(0, 3).map((log, index) => (
                       <div key={log.id} className="p-4 bg-gradient-to-r from-green-100/30 to-emerald-100/30 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200/50 transition-all hover:scale-102 hover:shadow-md">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
@@ -858,7 +859,15 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      ))}
+                    </div>
+                    {questionLogs.length > 3 && (
+                      <div className="text-center pt-4 border-t border-border/50">
+                        <button className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white text-sm font-medium px-6 py-2 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
+                          Tümünü Gör ({questionLogs.length} soru)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -937,9 +946,12 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-6">
-                {examResults
-                  .sort((a, b) => new Date(b.exam_date).getTime() - new Date(a.exam_date).getTime())
-                  .map((exam, index) => {
+                {/* Limited to 2 exam results */}
+                <div className={`space-y-6 ${examResults.length > 2 ? 'max-h-[800px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent' : ''}`}>
+                  {examResults
+                    .sort((a, b) => new Date(b.exam_date).getTime() - new Date(a.exam_date).getTime())
+                    .slice(0, 2)
+                    .map((exam, index) => {
                   // Get exam type and relevant net score
                   const examType = exam.exam_type || (parseFloat(exam.ayt_net) > 0 ? 'AYT' : 'TYT');
                   const relevantNet = examType === 'TYT' ? parseFloat(exam.tyt_net) || 0 : parseFloat(exam.ayt_net) || 0;
@@ -1142,9 +1154,16 @@ export default function Dashboard() {
                     </Card>
                   );
                 })}
+                </div>
+                {examResults.length > 2 && (
+                  <div className="text-center pt-6 border-t border-border/50">
+                    <button className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white text-sm font-medium px-6 py-2 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
+                      Tümünü Gör ({examResults.length} deneme)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            </div>
           </div>
         </div>
 
