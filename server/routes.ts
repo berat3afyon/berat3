@@ -1188,6 +1188,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to convert Turkish characters to ASCII equivalents for PDF
+  const convertTurkishChars = (text: string): string => {
+    const turkishMap: { [key: string]: string } = {
+      'ç': 'c', 'Ç': 'C',
+      'ğ': 'g', 'Ğ': 'G', 
+      'ı': 'i', 'İ': 'I',
+      'ö': 'o', 'Ö': 'O',
+      'ş': 's', 'Ş': 'S',
+      'ü': 'u', 'Ü': 'U'
+    };
+    
+    return text.replace(/[çÇğĞıİöÖşŞüÜ]/g, (match) => turkishMap[match] || match);
+  };
+
   // PDF Report Email Endpoint
   app.post("/api/send-report", async (req, res) => {
     try {
@@ -1314,7 +1328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let yPosition = height - 50;
       
       // Header
-      page.drawText('Aylik Aktivite Raporu', {
+      page.drawText(convertTurkishChars('Aylık Aktivite Raporu'), {
         x: 50,
         y: yPosition,
         size: 24,
@@ -1323,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       yPosition -= 40;
       
-      page.drawText(`${month} - Rapor Tarihi: ${date}`, {
+      page.drawText(convertTurkishChars(`${month} - Rapor Tarihi: ${date}`), {
         x: 50,
         y: yPosition,
         size: 14,
@@ -1332,7 +1346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       yPosition -= 20;
       
-      page.drawText('Berat Cakiroglu icin hazirlanmistir', {
+      page.drawText(convertTurkishChars('Berat Çakıroğlu için hazırlanmıştır'), {
         x: 50,
         y: yPosition,
         size: 12,
@@ -1342,7 +1356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPosition -= 50;
 
       // Activity Summary
-      page.drawText('Aktivite Özeti', {
+      page.drawText(convertTurkishChars('Aktivite Özeti'), {
         x: 50,
         y: yPosition,
         size: 18,
@@ -1352,10 +1366,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPosition -= 30;
 
       const summaryData = [
-        { label: 'Tamamlanan Görev', value: activities.tasks.length, color: rgb(0.133, 0.773, 0.369) },
-        { label: 'Çözülen Soru', value: activities.questionLogs.length, color: rgb(0.231, 0.510, 0.961) },
-        { label: 'Yapılan Deneme', value: activities.examResults.length, color: rgb(0.545, 0.361, 0.965) },
-        { label: 'Toplam Aktivite', value: activities.total, color: rgb(0.961, 0.620, 0.043) }
+        { label: convertTurkishChars('Tamamlanan Görev'), value: activities.tasks.length, color: rgb(0.133, 0.773, 0.369) },
+        { label: convertTurkishChars('Çözülen Soru'), value: activities.questionLogs.length, color: rgb(0.231, 0.510, 0.961) },
+        { label: convertTurkishChars('Yapılan Deneme'), value: activities.examResults.length, color: rgb(0.545, 0.361, 0.965) },
+        { label: convertTurkishChars('Toplam Aktivite'), value: activities.total, color: rgb(0.961, 0.620, 0.043) }
       ];
 
       summaryData.forEach((item, index) => {
@@ -1390,7 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Detailed sections
       if (activities.tasks.length > 0) {
         yPosition -= 20;
-        page.drawText('Tamamlanan Görevler', {
+        page.drawText(convertTurkishChars('Tamamlanan Görevler'), {
           x: 50,
           y: yPosition,
           size: 16,
@@ -1400,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.tasks.slice(0, 10).forEach((task: any) => {
-          const taskText = `• ${task.title} - ${task.category}`;
+          const taskText = convertTurkishChars(`• ${task.title} - ${task.category}`);
           if (yPosition > 50) {
             page.drawText(taskText.substring(0, 80), {
               x: 60,
@@ -1416,7 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (activities.questionLogs.length > 0 && yPosition > 100) {
         yPosition -= 20;
-        page.drawText('Çözülen Sorular', {
+        page.drawText(convertTurkishChars('Çözülen Sorular'), {
           x: 50,
           y: yPosition,
           size: 16,
@@ -1426,7 +1440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.questionLogs.slice(0, 10).forEach((log: any) => {
-          const logText = `• ${log.exam_type} - ${log.subject}: ${log.correct_count} doğru`;
+          const logText = convertTurkishChars(`• ${log.exam_type} - ${log.subject}: ${log.correct_count} doğru`);
           if (yPosition > 50) {
             page.drawText(logText.substring(0, 80), {
               x: 60,
@@ -1442,7 +1456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (activities.examResults.length > 0 && yPosition > 100) {
         yPosition -= 20;
-        page.drawText('🎯 Yapılan Denemeler', {
+        page.drawText(convertTurkishChars('Yapılan Denemeler'), {
           x: 50,
           y: yPosition,
           size: 16,
@@ -1452,7 +1466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.examResults.slice(0, 10).forEach((exam: any) => {
-          const examText = `• ${exam.exam_name}: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}`;
+          const examText = convertTurkishChars(`• ${exam.exam_name}: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}`);
           if (yPosition > 50) {
             page.drawText(examText.substring(0, 80), {
               x: 60,
@@ -1468,17 +1482,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const pdfBytes = await pdfDoc.save();
 
+      // Convert month name to ASCII-safe version for consistent usage
+      const safeMonth = convertTurkishChars(month);
+      const safeReportTitle = convertTurkishChars('Aylık Aktivite Raporu');
+
       // Email message with PDF attachment
       const msg = {
         to: email,
         from: 'noreply@tytayt.app', // Replace with your verified sender
-        subject: `${month} Aylık Aktivite Raporu - TYT/AYT Takip`,
-        html: htmlContent,
-        text: `${month} Aylık Aktivite Raporu\n\nToplam Aktivite: ${activities.total}\n- Tamamlanan Görev: ${activities.tasks.length}\n- Çözülen Soru: ${activities.questionLogs.length}\n- Yapılan Deneme: ${activities.examResults.length}\n\nDetaylı rapor için ekteki PDF dosyasını kontrol edin.`,
+        subject: `${safeMonth} ${safeReportTitle} - TYT/AYT Takip`,
+        html: convertTurkishChars(htmlContent), // Convert HTML content for complete ASCII consistency
+        text: `${safeMonth} ${safeReportTitle}\n\n${convertTurkishChars('Toplam Aktivite')}: ${activities.total}\n- ${convertTurkishChars('Tamamlanan Görev')}: ${activities.tasks.length}\n- ${convertTurkishChars('Çözülen Soru')}: ${activities.questionLogs.length}\n- ${convertTurkishChars('Yapılan Deneme')}: ${activities.examResults.length}\n\n${convertTurkishChars('Detaylı rapor için ekteki PDF dosyasını kontrol edin.')}.`,
         attachments: [
           {
             content: Buffer.from(pdfBytes).toString('base64'),
-            filename: `${month.replace(' ', '-')}-Aktivite-Raporu.pdf`,
+            filename: `${safeMonth.replace(' ', '-')}-${convertTurkishChars('Aktivite-Raporu')}.pdf`,
             type: 'application/pdf',
             disposition: 'attachment',
           },
