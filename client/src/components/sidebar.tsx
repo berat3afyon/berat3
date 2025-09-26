@@ -1,15 +1,28 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Task } from "@shared/schema";
-import { Clock } from "lucide-react";
+import { Clock, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function Sidebar() {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
+  
+  // Get additional data needed for report
+  const { data: questionLogs = [] } = useQuery({
+    queryKey: ["/api/question-logs"],
+  });
+  
+  const { data: examResults = [] } = useQuery({
+    queryKey: ["/api/exam-results"],
+  });
 
   // Real-time clock state
   const [currentTime, setCurrentTime] = React.useState(new Date());
+  
+  // Report sending state
+  const [isSending, setIsSending] = React.useState(false);
 
   // Update time every second
   React.useEffect(() => {
@@ -179,6 +192,99 @@ export function Sidebar() {
               </div>
             );
           })}
+        </div>
+        
+        {/* Report Send Button */}
+        <div className="border-t border-border pt-4 mt-4">
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground mb-2">
+              Ay Sonuna Kalan Süre: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()} gün
+            </div>
+            <Button
+              onClick={async () => {
+                if (isSending) return;
+                
+                setIsSending(true);
+                
+                try {
+                  // Calculate monthly activities
+                  const currentMonth = new Date();
+                  const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+                  const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+                  
+                  // Filter data for current month
+                  const monthlyTasks = tasks.filter(task => {
+                    if (task.completedAt) {
+                      const completedDate = new Date(task.completedAt);
+                      return completedDate >= startOfMonth && completedDate <= endOfMonth;
+                    }
+                    return false;
+                  });
+
+                  const monthlyQuestionLogs = (questionLogs as any[]).filter((log: any) => {
+                    const logDate = new Date(log.study_date);
+                    return logDate >= startOfMonth && logDate <= endOfMonth;
+                  });
+
+                  const monthlyExamResults = (examResults as any[]).filter((exam: any) => {
+                    const examDate = new Date(exam.exam_date);
+                    return examDate >= startOfMonth && examDate <= endOfMonth;
+                  });
+
+                  const monthlyActivities = {
+                    tasks: monthlyTasks,
+                    questionLogs: monthlyQuestionLogs,
+                    examResults: monthlyExamResults,
+                    total: monthlyTasks.length + monthlyQuestionLogs.length + monthlyExamResults.length
+                  };
+
+                  const reportData = {
+                    month: new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }),
+                    date: new Date().toLocaleDateString('tr-TR'),
+                    activities: monthlyActivities,
+                    email: 'brtbllcankir03@gmail.com'
+                  };
+
+                  // Send report
+                  const response = await fetch('/api/send-report', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reportData),
+                  });
+
+                  if (response.ok) {
+                    const result = await response.json();
+                    alert('📧 ' + result.message);
+                  } else {
+                    const errorData = await response.json().catch(() => ({ message: 'Bilinmeyen hata oluştu' }));
+                    alert('❌ Rapor gönderilirken hata oluştu: ' + errorData.message);
+                  }
+                } catch (error) {
+                  console.error('Report sending error:', error);
+                  alert('❌ Rapor gönderilirken bir hata oluştu. Lütfen tekrar deneyin.');
+                } finally {
+                  setIsSending(false);
+                }
+              }}
+              disabled={isSending}
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="button-sidebar-report-send"
+            >
+              {isSending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Gönderiliyor...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Rapor Gönder
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
