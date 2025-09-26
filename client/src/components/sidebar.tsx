@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Task } from "@shared/schema";
 
@@ -11,9 +12,44 @@ export function Sidebar() {
   const pendingTasks = totalTasks - completedTasks;
   const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const workTasks = tasks.filter(task => task.category === "work").length;
-  const personalTasks = tasks.filter(task => task.category === "personal").length;
-  const shoppingTasks = tasks.filter(task => task.category === "shopping").length;
+  const turkçeTasks = tasks.filter(task => task.category === "turkce").length;
+  const matematikTasks = tasks.filter(task => task.category === "matematik").length;
+  const genelTasks = tasks.filter(task => task.category === "genel").length;
+
+  // Precompute activity map using local dates to avoid timezone issues and improve performance
+  const activityMap = React.useMemo(() => {
+    const map = new Map<string, { hasCreated: boolean; hasCompleted: boolean }>();
+    
+    tasks.forEach(task => {
+      // Handle task creation date using local date formatting
+      if (task.createdAt) {
+        const createdDate = new Date(task.createdAt).toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        const existing = map.get(createdDate) || { hasCreated: false, hasCompleted: false };
+        map.set(createdDate, { ...existing, hasCreated: true });
+      }
+      
+      // Handle task completion date using local date formatting
+      if (task.completed && task.completedAt) {
+        const completedDate = new Date(task.completedAt).toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        const existing = map.get(completedDate) || { hasCreated: false, hasCompleted: false };
+        map.set(completedDate, { ...existing, hasCompleted: true });
+      }
+    });
+    
+    return map;
+  }, [tasks]);
+
+  // Function to get activity type for a date (O(1) lookup)
+  const getActivityType = (date: Date): 'created' | 'completed' | 'both' | 'none' => {
+    const dateStr = date.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
+    const activity = activityMap.get(dateStr);
+    
+    if (!activity) return 'none';
+    if (activity.hasCreated && activity.hasCompleted) return 'both';
+    if (activity.hasCompleted) return 'completed';
+    if (activity.hasCreated) return 'created';
+    return 'none';
+  };
 
   const currentDate = new Date();
   const currentDay = currentDate.getDate();
@@ -83,11 +119,12 @@ export function Sidebar() {
           {calendarDays.slice(0, 28).map((date, index) => {
             const isCurrentMonth = date.getMonth() === month;
             const isToday = date.getDate() === currentDay && isCurrentMonth;
+            const activityType = getActivityType(date);
             
             return (
               <div
                 key={index}
-                className={`text-center p-1 ${
+                className={`text-center p-1 relative ${
                   isToday
                     ? "bg-primary text-primary-foreground rounded"
                     : isCurrentMonth
@@ -96,6 +133,22 @@ export function Sidebar() {
                 }`}
               >
                 {date.getDate()}
+                {activityType !== 'none' && isCurrentMonth && !isToday && (
+                  <div className="absolute top-0 right-0 flex flex-col gap-0.5">
+                    {activityType === 'created' && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full" title="Görev eklendi"></div>
+                    )}
+                    {activityType === 'completed' && (
+                      <div className="w-2 h-2 bg-purple-500 rounded-full" title="Görev tamamlandı"></div>
+                    )}
+                    {activityType === 'both' && (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full" title="Görev eklendi"></div>
+                        <div className="w-2 h-2 bg-purple-500 rounded-full" title="Görev tamamlandı"></div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -108,24 +161,24 @@ export function Sidebar() {
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 hover:bg-secondary rounded-lg cursor-pointer transition-colors">
             <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-sm text-foreground">İş</span>
-            </div>
-            <span className="text-xs text-muted-foreground" data-testid="text-work-tasks">{workTasks}</span>
-          </div>
-          <div className="flex items-center justify-between p-2 hover:bg-secondary rounded-lg cursor-pointer transition-colors">
-            <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="text-sm text-foreground">Kişisel</span>
+              <span className="text-sm text-foreground">Türkçe</span>
             </div>
-            <span className="text-xs text-muted-foreground" data-testid="text-personal-tasks">{personalTasks}</span>
+            <span className="text-xs text-muted-foreground" data-testid="text-turkce-tasks">{turkçeTasks}</span>
           </div>
           <div className="flex items-center justify-between p-2 hover:bg-secondary rounded-lg cursor-pointer transition-colors">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-foreground">Alışveriş</span>
+              <span className="text-sm text-foreground">Matematik</span>
             </div>
-            <span className="text-xs text-muted-foreground" data-testid="text-shopping-tasks">{shoppingTasks}</span>
+            <span className="text-xs text-muted-foreground" data-testid="text-matematik-tasks">{matematikTasks}</span>
+          </div>
+          <div className="flex items-center justify-between p-2 hover:bg-secondary rounded-lg cursor-pointer transition-colors">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+              <span className="text-sm text-foreground">Genel</span>
+            </div>
+            <span className="text-xs text-muted-foreground" data-testid="text-genel-tasks">{genelTasks}</span>
           </div>
         </div>
       </div>
