@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Header } from "@/components/header";
 import { EnhancedWeatherWidget } from "@/components/enhanced-weather-widget";
 import { CountdownWidget } from "@/components/countdown-widget";
@@ -133,46 +133,44 @@ export default function Homepage() {
     queryKey: ["/api/exam-results"],
   });
 
-  // Generate calendar for display month/year
-  const year = displayYear;
-  const month = displayMonth;
-  const firstDay = new Date(year, month, 1);
+  // Memoized calendar generation to prevent flickering
+  const calendarDays = useMemo(() => {
+    const year = displayYear;
+    const month = displayMonth;
+    const firstDay = new Date(year, month, 1);
+    
+    // Start from Monday (fix week alignment)
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const startDate = new Date(year, month, 1 - startOffset);
+    
+    const days = [];
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      days.push(date);
+    }
+    
+    return days;
+  }, [displayYear, displayMonth]);
+
+  // Current date constants for comparison
   const today = currentDate.getDate();
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
 
-  // Start from Monday (fix week alignment)
-  const startOffset = (firstDay.getDay() + 6) % 7;
-  const startDate = new Date(year, month, 1 - startOffset);
-  
-  const calendarDays = [];
-  for (let i = 0; i < 42; i++) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + i);
-    calendarDays.push(date);
-  }
-
-  // Navigation functions
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  // Optimized navigation functions using useCallback
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     if (direction === 'prev') {
-      if (displayMonth === 0) {
-        setDisplayMonth(11);
-        setDisplayYear(displayYear - 1);
-      } else {
-        setDisplayMonth(displayMonth - 1);
-      }
+      setDisplayMonth(prev => prev === 0 ? 11 : prev - 1);
+      setDisplayYear(prev => displayMonth === 0 ? prev - 1 : prev);
     } else {
-      if (displayMonth === 11) {
-        setDisplayMonth(0);
-        setDisplayYear(displayYear + 1);
-      } else {
-        setDisplayMonth(displayMonth + 1);
-      }
+      setDisplayMonth(prev => prev === 11 ? 0 : prev + 1);
+      setDisplayYear(prev => displayMonth === 11 ? prev + 1 : prev);
     }
-  };
+  }, [displayMonth]);
 
-  // Check if a date has activities (completed tasks, question logs, or exam results)
-  const hasActivities = (date: Date) => {
+  // Memoized activity checking to prevent recalculation
+  const hasActivities = useCallback((date: Date) => {
     const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
     
     // Check completed tasks
@@ -189,10 +187,10 @@ export default function Homepage() {
     const hasExamResults = examResults.some(exam => exam.exam_date === dateStr);
     
     return hasCompletedTasks || hasQuestionLogs || hasExamResults;
-  };
+  }, [allTasks, questionLogs, examResults]);
 
   // Get activities for a specific date
-  const getActivitiesForDate = (date: Date) => {
+  const getActivitiesForDate = useCallback((date: Date) => {
     const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
     
     const completedTasks = allTasks.filter(task => {
@@ -210,7 +208,7 @@ export default function Homepage() {
       examResults: dayExamResults,
       total: completedTasks.length + dayQuestionLogs.length + dayExamResults.length
     };
-  };
+  }, [allTasks, questionLogs, examResults]);
 
   const handleDateClick = (date: Date) => {
     // Fix: Use the actual date without timezone issues
@@ -279,7 +277,7 @@ export default function Homepage() {
               {/* Calendar Days */}
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((date, index) => {
-                  const isCurrentMonth = date.getMonth() === month;
+                  const isCurrentMonth = date.getMonth() === displayMonth;
                   const isToday = date.getDate() === today && isCurrentMonth && displayYear === currentYear && displayMonth === currentMonth;
                   const year = date.getFullYear();
                   const month_num = (date.getMonth() + 1).toString().padStart(2, '0');

@@ -1166,6 +1166,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+        </div>
 
         {/* Analytics Charts - Keep these important analytics */}
         <div className="space-y-8 mb-8">
