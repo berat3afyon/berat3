@@ -114,17 +114,120 @@ export default function Homepage() {
   // Report modal states
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportActivated, setReportActivated] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailNote, setEmailNote] = useState("");
+  const [timeUntilMonthEnd, setTimeUntilMonthEnd] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [autoEmailSent, setAutoEmailSent] = useState(false);
   
   const { toast } = useToast();
 
-  // Email sending mutation
-  const sendEmailMutation = useMutation({
-    mutationFn: async (data: { subject: string; note: string; reportData?: any }) => {
+  // Calculate time remaining until end of month
+  const calculateTimeUntilMonthEnd = useCallback(() => {
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const timeDiff = endOfMonth.getTime() - now.getTime();
+    
+    if (timeDiff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+    
+    return { days, hours, minutes, seconds };
+  }, []);
+
+  // Update countdown every second
+  useEffect(() => {
+    const updateCountdown = () => {
+      const timeLeft = calculateTimeUntilMonthEnd();
+      setTimeUntilMonthEnd(timeLeft);
+      
+      // Auto-send email when month ends
+      if (timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0 && !autoEmailSent) {
+        setAutoEmailSent(true);
+        handleAutoSendEmail();
+      }
+    };
+    
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(timer);
+  }, [calculateTimeUntilMonthEnd, autoEmailSent]);
+
+  // Auto send email at month end
+  const handleAutoSendEmail = async () => {
+    try {
+      const currentDate = new Date();
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      
+      const monthlyTasks = allTasks.filter(task => {
+        if (task.completedAt) {
+          const completedDate = new Date(task.completedAt);
+          return completedDate >= startOfMonth && completedDate <= endOfMonth;
+        }
+        return false;
+      });
+
+      const monthlyQuestionLogs = questionLogs.filter((log: any) => {
+        if (log.study_date) {
+          const logDate = new Date(log.study_date);
+          return logDate >= startOfMonth && logDate <= endOfMonth;
+        }
+        return false;
+      });
+
+      const monthlyExamResults = examResults.filter((exam: any) => {
+        if (exam.exam_date) {
+          const examDate = new Date(exam.exam_date);
+          return examDate >= startOfMonth && examDate <= endOfMonth;
+        }
+        return false;
+      });
+
+      const monthlyActivities = {
+        tasks: monthlyTasks,
+        questionLogs: monthlyQuestionLogs,
+        examResults: monthlyExamResults,
+        total: monthlyTasks.length + monthlyQuestionLogs.length + monthlyExamResults.length
+      };
+
+      const reportData = {
+        month: currentDate.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }),
+        date: currentDate.toLocaleDateString('tr-TR'),
+        activities: monthlyActivities,
+        email: 'brtbllcankir03@gmail.com'
+      };
+
       const response = await fetch("/api/send-report", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(reportData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "🎉 Otomatik Aylık Rapor!",
+          description: "Aylık rapor otomatik olarak gönderildi: " + result.message,
+          duration: 10000,
+        });
+      }
+    } catch (error) {
+      console.error('Auto email error:', error);
+    }
+  };
+
+  // Email sending mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (reportData: any) => {
+      const response = await fetch("/api/send-report", {
+        method: "POST",
+        body: JSON.stringify(reportData),
         headers: {
           "Content-Type": "application/json",
         },
@@ -144,8 +247,6 @@ export default function Homepage() {
         duration: 5000,
       });
       setShowReportModal(false);
-      setEmailSubject("");
-      setEmailNote("");
     },
     onError: (error: any) => {
       toast({
@@ -307,34 +408,51 @@ export default function Homepage() {
   };
 
   const handleSendEmail = () => {
-    if (!emailSubject.trim()) {
-      toast({
-        title: "Hata!",
-        description: "Lütfen bir konu girin.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!emailNote.trim()) {
-      toast({
-        title: "Hata!",
-        description: "Lütfen notlarınızı girin.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Get current month activities for the report
-    const currentMonthActivities = getMonthlyActivities(new Date());
-
-    sendEmailMutation.mutate({
-      subject: emailSubject,
-      note: emailNote,
-      reportData: {
-        activities: currentMonthActivities
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    
+    // Filter data for current month (same as sidebar implementation)
+    const monthlyTasks = allTasks.filter(task => {
+      if (task.completedAt) {
+        const completedDate = new Date(task.completedAt);
+        return completedDate >= startOfMonth && completedDate <= endOfMonth;
       }
+      return false;
     });
+
+    const monthlyQuestionLogs = questionLogs.filter((log: any) => {
+      if (log.study_date) {
+        const logDate = new Date(log.study_date);
+        return logDate >= startOfMonth && logDate <= endOfMonth;
+      }
+      return false;
+    });
+
+    const monthlyExamResults = examResults.filter((exam: any) => {
+      if (exam.exam_date) {
+        const examDate = new Date(exam.exam_date);
+        return examDate >= startOfMonth && examDate <= endOfMonth;
+      }
+      return false;
+    });
+
+    const monthlyActivities = {
+      tasks: monthlyTasks,
+      questionLogs: monthlyQuestionLogs,
+      examResults: monthlyExamResults,
+      total: monthlyTasks.length + monthlyQuestionLogs.length + monthlyExamResults.length
+    };
+
+    const reportData = {
+      month: currentDate.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }),
+      date: currentDate.toLocaleDateString('tr-TR'),
+      activities: monthlyActivities,
+      email: 'brtbllcankir03@gmail.com'
+    };
+
+    sendEmailMutation.mutate(reportData);
   };
 
   return (
@@ -367,7 +485,7 @@ export default function Homepage() {
                       setShowReportModal(true);
                     }
                   }}
-                  className="relative bg-purple-500/15 hover:bg-purple-500/25 backdrop-blur-sm border-2 border-purple-500/40 hover:border-purple-400/60 text-purple-400 hover:text-purple-300 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 group"
+                  className="relative bg-purple-500/15 hover:bg-purple-500/25 backdrop-blur-sm border-2 border-purple-500/40 hover:border-purple-400/60 text-purple-400 hover:text-purple-300 font-semibold px-4 py-3 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 flex flex-col items-center space-y-1 group"
                   data-testid="button-report-send"
                   style={{
                     boxShadow: reportActivated 
@@ -375,15 +493,29 @@ export default function Homepage() {
                       : '0 0 15px rgba(147, 51, 234, 0.3)'
                   }}
                 >
-                  <FileText className="h-4 w-4" />
-                  <span className="text-sm font-bold">Rapor Gönder</span>
-                  <Send className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm font-bold">Rapor Gönder</span>
+                    <Send className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  
+                  {/* Countdown Timer in Button */}
+                  <div className="text-xs text-purple-800 dark:text-purple-200 font-bold font-mono">
+                    {timeUntilMonthEnd.days}g:{timeUntilMonthEnd.hours.toString().padStart(2, '0')}s:{timeUntilMonthEnd.minutes.toString().padStart(2, '0')}d:{timeUntilMonthEnd.seconds.toString().padStart(2, '0')}sn
+                  </div>
                   
                   {/* Red/Green Activation Circle */}
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setReportActivated(!reportActivated);
+                      if (!reportActivated) {
+                        toast({
+                          title: "✅ Rapor Aktif!",
+                          description: "Artık rapor gönderebilirsiniz.",
+                          duration: 3000,
+                        });
+                      }
                     }}
                     className={`absolute -top-1 -right-1 w-4 h-4 rounded-full transition-all duration-300 transform cursor-pointer ${
                       reportActivated 
@@ -776,36 +908,14 @@ export default function Homepage() {
                           </div>
                         </div>
 
-                        {/* Subject Field */}
-                        <div>
-                          <Label htmlFor="email-subject" className="text-sm font-medium text-muted-foreground mb-1 block">
-                            Konu *
-                          </Label>
-                          <Input
-                            id="email-subject"
-                            type="text"
-                            placeholder="Rapor konusu girin..."
-                            value={emailSubject}
-                            onChange={(e) => setEmailSubject(e.target.value)}
-                            className="w-full"
-                            data-testid="input-email-subject"
-                          />
-                        </div>
-
-                        {/* Note Field */}
-                        <div>
-                          <Label htmlFor="email-note" className="text-sm font-medium text-muted-foreground mb-1 block">
-                            Notlar *
-                          </Label>
-                          <Textarea
-                            id="email-note"
-                            placeholder="Rapor hakkında notlarınızı girin..."
-                            value={emailNote}
-                            onChange={(e) => setEmailNote(e.target.value)}
-                            rows={3}
-                            className="w-full resize-none"
-                            data-testid="textarea-email-note"
-                          />
+                        {/* Info Message */}
+                        <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 text-purple-600 dark:text-purple-400">📊</div>
+                            <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                              Aylık aktivite raporu otomatik olarak oluşturulacak ve gönderilecektir.
+                            </span>
+                          </div>
                         </div>
                       </div>
                       

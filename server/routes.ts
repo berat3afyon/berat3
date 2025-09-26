@@ -1254,7 +1254,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Generate HTML content for the PDF report
+      // Calculate detailed statistics
+      const calculateStats = () => {
+        let totalCorrect = 0;
+        let totalWrong = 0;
+        let totalQuestions = 0;
+        let tytStats: any = {};
+        let aytStats: any = {};
+        
+        safeActivities.questionLogs.forEach((log: any) => {
+          const correct = parseInt(log.correct_count) || 0;
+          const wrong = parseInt(log.wrong_count) || 0;
+          const blank = parseInt(log.blank_count) || 0;
+          const total = correct + wrong + blank;
+          
+          totalCorrect += correct;
+          totalWrong += wrong;
+          totalQuestions += total;
+          
+          const examType = log.exam_type;
+          const subject = log.subject;
+          const net = correct - (wrong * 0.25);
+          
+          if (examType === 'TYT') {
+            if (!tytStats[subject]) {
+              tytStats[subject] = { correct: 0, wrong: 0, blank: 0, net: 0, questions: 0 };
+            }
+            tytStats[subject].correct += correct;
+            tytStats[subject].wrong += wrong;
+            tytStats[subject].blank += blank;
+            tytStats[subject].net += net;
+            tytStats[subject].questions += total;
+          } else if (examType === 'AYT') {
+            if (!aytStats[subject]) {
+              aytStats[subject] = { correct: 0, wrong: 0, blank: 0, net: 0, questions: 0 };
+            }
+            aytStats[subject].correct += correct;
+            aytStats[subject].wrong += wrong;
+            aytStats[subject].blank += blank;
+            aytStats[subject].net += net;
+            aytStats[subject].questions += total;
+          }
+        });
+        
+        return { totalCorrect, totalWrong, totalQuestions, tytStats, aytStats };
+      };
+
+      const stats = calculateStats();
+
+      // Generate modern HTML content for the PDF report
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -1262,94 +1310,292 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <meta charset="UTF-8">
             <title>Aylık Aktivite Raporu</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .header h1 { color: #8B5CF6; margin-bottom: 10px; }
-                .summary { display: flex; justify-content: space-around; margin: 30px 0; }
-                .summary-card { text-align: center; padding: 20px; border-radius: 10px; margin: 0 10px; flex: 1; }
-                .summary-card.tasks { background-color: #F0FDF4; border: 2px solid #22C55E; }
-                .summary-card.questions { background-color: #EFF6FF; border: 2px solid #3B82F6; }
-                .summary-card.exams { background-color: #F3E8FF; border: 2px solid #8B5CF6; }
-                .summary-card.total { background-color: #FFFBEB; border: 2px solid #F59E0B; }
-                .summary-card h3 { font-size: 2em; margin: 0; }
-                .summary-card p { margin: 5px 0 0 0; font-weight: bold; }
-                .footer { text-align: center; margin-top: 40px; color: #666; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    color: #1a202c; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                }
+                .container { 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    background: white; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
+                    padding: 40px;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 40px; 
+                    border-bottom: 3px solid #8B5CF6; 
+                    padding-bottom: 20px; 
+                }
+                .header h1 { 
+                    color: #8B5CF6; 
+                    margin: 0 0 10px 0; 
+                    font-size: 2.5rem; 
+                    font-weight: 700;
+                }
+                .header .subtitle { 
+                    color: #4A5568; 
+                    font-size: 1.1rem; 
+                    margin: 5px 0;
+                }
+                .stats-grid { 
+                    display: grid; 
+                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+                    gap: 20px; 
+                    margin: 30px 0; 
+                }
+                .stat-card { 
+                    text-align: center; 
+                    padding: 24px; 
+                    border-radius: 12px; 
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                }
+                .stat-card.primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+                .stat-card.success { background: linear-gradient(135deg, #48bb78, #38a169); color: white; }
+                .stat-card.danger { background: linear-gradient(135deg, #f56565, #e53e3e); color: white; }
+                .stat-card.warning { background: linear-gradient(135deg, #ed8936, #d69e2e); color: white; }
+                .stat-value { font-size: 2.5rem; font-weight: 700; margin: 0; }
+                .stat-label { font-size: 0.9rem; margin: 8px 0 0 0; font-weight: 500; }
+                .section { margin: 40px 0; }
+                .section-title { 
+                    color: #2D3748; 
+                    font-size: 1.8rem; 
+                    font-weight: 700; 
+                    margin-bottom: 20px; 
+                    padding-bottom: 10px; 
+                    border-bottom: 2px solid #E2E8F0;
+                }
+                .exam-table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    border-radius: 8px; 
+                    overflow: hidden; 
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                }
+                .exam-table th { 
+                    background: linear-gradient(135deg, #667eea, #764ba2); 
+                    color: white; 
+                    padding: 15px 12px; 
+                    text-align: left; 
+                    font-weight: 600;
+                }
+                .exam-table td { 
+                    padding: 12px; 
+                    border-bottom: 1px solid #E2E8F0; 
+                }
+                .exam-table tr:hover { 
+                    background-color: #F7FAFC; 
+                }
+                .net-positive { color: #38a169; font-weight: 600; }
+                .net-negative { color: #e53e3e; font-weight: 600; }
+                .subject-grid { 
+                    display: grid; 
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+                    gap: 20px; 
+                    margin: 20px 0; 
+                }
+                .subject-card { 
+                    background: #F8F9FA; 
+                    border-radius: 12px; 
+                    padding: 20px; 
+                    border-left: 4px solid #8B5CF6;
+                }
+                .subject-title { 
+                    color: #2D3748; 
+                    font-size: 1.3rem; 
+                    font-weight: 600; 
+                    margin-bottom: 15px;
+                }
+                .subject-stats { 
+                    display: grid; 
+                    grid-template-columns: 1fr 1fr; 
+                    gap: 10px;
+                }
+                .subject-stat { 
+                    display: flex; 
+                    justify-content: space-between; 
+                    padding: 8px 0; 
+                    border-bottom: 1px solid #E2E8F0;
+                }
+                .footer { 
+                    text-align: center; 
+                    margin-top: 50px; 
+                    padding-top: 20px; 
+                    border-top: 2px solid #E2E8F0; 
+                    color: #718096; 
+                    font-size: 0.9rem;
+                }
             </style>
         </head>
         <body>
-            <div class="header">
-                <h1>Aylık Aktivite Raporu</h1>
-                <p><strong>${month}</strong> - Rapor Tarihi: ${date}</p>
-                <p>Berat Çakıroğlu için hazırlanmıştır</p>
-            </div>
-            
-            <div class="summary">
-                <div class="summary-card tasks">
-                    <h3>${safeActivities.tasks.length}</h3>
-                    <p>Tamamlanan Görev</p>
+            <div class="container">
+                <div class="header">
+                    <h1>${month} Aylık Aktivite Raporum</h1>
+                    <h2 style="color: #8B5CF6; font-size: 1.8rem; font-weight: 600; margin: 15px 0;">
+                        🎯 Berat Çakıroğlu Özel Aylık Raporu
+                    </h2>
+                    <p class="subtitle">Rapor Tarihi: ${date}</p>
+                    <div style="background: linear-gradient(135deg, #8B5CF6, #7C3AED); color: white; padding: 15px; border-radius: 12px; margin: 20px 0;">
+                        <p style="margin: 0; font-size: 1.1rem; font-weight: 500;">
+                            📈 Kişiselleştirilmiş Performans Analizi
+                        </p>
+                    </div>
                 </div>
-                <div class="summary-card questions">
-                    <h3>${safeActivities.questionLogs.length}</h3>
-                    <p>Çözülen Soru</p>
+                
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <div class="stat-value">${stats.totalQuestions}</div>
+                        <div class="stat-label">Toplam Soru</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value">${stats.totalCorrect}</div>
+                        <div class="stat-label">Doğru Sayısı</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-value">${stats.totalWrong}</div>
+                        <div class="stat-label">Yanlış Sayısı</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value">${safeActivities.examResults.length}</div>
+                        <div class="stat-label">Yapılan Deneme</div>
+                    </div>
                 </div>
-                <div class="summary-card exams">
-                    <h3>${safeActivities.examResults.length}</h3>
-                    <p>Yapılan Deneme</p>
+
+                ${safeActivities.examResults.length > 0 ? `
+                <div class="section">
+                    <h2 class="section-title">🎯 Deneme Sınavı Sonuçları</h2>
+                    <table class="exam-table">
+                        <thead>
+                            <tr>
+                                <th>Deneme Adı</th>
+                                <th>Tarih</th>
+                                <th>TYT Net</th>
+                                <th>AYT Net</th>
+                                <th>Toplam Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${safeActivities.examResults.map((exam: any) => {
+                              const tytNet = parseFloat(exam.tyt_net) || 0;
+                              const aytNet = parseFloat(exam.ayt_net) || 0;
+                              const totalNet = tytNet + aytNet;
+                              return `
+                                <tr>
+                                    <td><strong>${exam.exam_name}</strong></td>
+                                    <td>${new Date(exam.exam_date).toLocaleDateString('tr-TR')}</td>
+                                    <td class="${tytNet >= 0 ? 'net-positive' : 'net-negative'}">${tytNet.toFixed(2)}</td>
+                                    <td class="${aytNet >= 0 ? 'net-positive' : 'net-negative'}">${aytNet.toFixed(2)}</td>
+                                    <td class="${totalNet >= 0 ? 'net-positive' : 'net-negative'}"><strong>${totalNet.toFixed(2)}</strong></td>
+                                </tr>
+                              `;
+                            }).join('')}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="summary-card total">
-                    <h3>${safeActivities.total}</h3>
-                    <p>Toplam Aktivite</p>
+                ` : ''}
+
+                ${Object.keys(stats.tytStats).length > 0 ? `
+                <div class="section">
+                    <h2 class="section-title">📚 TYT Ders Bazında Performans</h2>
+                    <div class="subject-grid">
+                        ${Object.entries(stats.tytStats).map(([subject, data]: [string, any]) => `
+                            <div class="subject-card">
+                                <div class="subject-title">${subject}</div>
+                                <div class="subject-stats">
+                                    <div class="subject-stat">
+                                        <span>Doğru:</span>
+                                        <span class="net-positive"><strong>${data.correct}</strong></span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Yanlış:</span>
+                                        <span class="net-negative"><strong>${data.wrong}</strong></span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Boş:</span>
+                                        <span>${data.blank}</span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Net:</span>
+                                        <span class="${data.net >= 0 ? 'net-positive' : 'net-negative'}"><strong>${data.net.toFixed(2)}</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
+                ` : ''}
 
-            ${safeActivities.tasks.length > 0 ? `
-            <div style="margin: 30px 0;">
-                <h2 style="color: #22C55E;">Tamamlanan Görevler</h2>
-                <ul>
-                    ${safeActivities.tasks.map((task: any) => `
-                        <li><strong>${task.title}</strong> - ${task.category} 
-                            ${task.completedAt ? `(${new Date(task.completedAt).toLocaleDateString('tr-TR')})` : ''}
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-            ` : ''}
+                ${Object.keys(stats.aytStats).length > 0 ? `
+                <div class="section">
+                    <h2 class="section-title">📖 AYT Ders Bazında Performans</h2>
+                    <div class="subject-grid">
+                        ${Object.entries(stats.aytStats).map(([subject, data]: [string, any]) => `
+                            <div class="subject-card">
+                                <div class="subject-title">${subject}</div>
+                                <div class="subject-stats">
+                                    <div class="subject-stat">
+                                        <span>Doğru:</span>
+                                        <span class="net-positive"><strong>${data.correct}</strong></span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Yanlış:</span>
+                                        <span class="net-negative"><strong>${data.wrong}</strong></span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Boş:</span>
+                                        <span>${data.blank}</span>
+                                    </div>
+                                    <div class="subject-stat">
+                                        <span>Net:</span>
+                                        <span class="${data.net >= 0 ? 'net-positive' : 'net-negative'}"><strong>${data.net.toFixed(2)}</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
 
-            ${safeActivities.questionLogs.length > 0 ? `
-            <div style="margin: 30px 0;">
-                <h2 style="color: #3B82F6;">Çözülen Sorular</h2>
-                <ul>
-                    ${safeActivities.questionLogs.map((log: any) => `
-                        <li><strong>${log.exam_type} - ${log.subject}</strong>: ${log.correct_count} doğru / ${log.total_questions} soru
-                            (${new Date(log.study_date).toLocaleDateString('tr-TR')})
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-            ` : ''}
+                ${safeActivities.tasks.length > 0 ? `
+                <div class="section">
+                    <h2 class="section-title">✅ Tamamlanan Görevler</h2>
+                    <table class="exam-table">
+                        <thead>
+                            <tr>
+                                <th>Görev</th>
+                                <th>Kategori</th>
+                                <th>Tamamlanma Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${safeActivities.tasks.map((task: any) => `
+                                <tr>
+                                    <td><strong>${task.title}</strong></td>
+                                    <td><span style="background: #E2E8F0; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${task.category}</span></td>
+                                    <td>${task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR') : '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
 
-            ${safeActivities.examResults.length > 0 ? `
-            <div style="margin: 30px 0;">
-                <h2 style="color: #8B5CF6;">🎯 Yapılan Denemeler</h2>
-                <ul>
-                    ${safeActivities.examResults.map((exam: any) => `
-                        <li><strong>${exam.exam_name}</strong>: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}
-                            (${new Date(exam.exam_date).toLocaleDateString('tr-TR')})
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-            ` : ''}
-
-            <div class="footer">
-                <p>Bu rapor TYT/AYT Takip Uygulaması tarafından otomatik olarak oluşturulmuştur.</p>
-                <p>Rapor ${new Date().toLocaleDateString('tr-TR', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })} tarihinde gönderilmiştir.</p>
+                <div class="footer">
+                    <p><strong>🚀 Bu rapor TYT/AYT Takip Uygulaması tarafından otomatik olarak oluşturulmuştur.</strong></p>
+                    <p>Rapor ${new Date().toLocaleDateString('tr-TR', { 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })} tarihinde gönderilmiştir.</p>
+                    <p>🎯 Başarılar dileriz!</p>
+                </div>
             </div>
         </body>
         </html>
