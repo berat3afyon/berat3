@@ -367,12 +367,12 @@ export default function Homepage() {
                       setShowReportModal(true);
                     }
                   }}
-                  className="relative bg-blue-500/15 hover:bg-blue-500/25 backdrop-blur-sm border-2 border-blue-500/40 hover:border-blue-400/60 text-blue-400 hover:text-blue-300 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 group"
+                  className="relative bg-purple-500/15 hover:bg-purple-500/25 backdrop-blur-sm border-2 border-purple-500/40 hover:border-purple-400/60 text-purple-400 hover:text-purple-300 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 group"
                   data-testid="button-report-send"
                   style={{
                     boxShadow: reportActivated 
-                      ? '0 0 20px rgba(59, 130, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.1)' 
-                      : '0 0 15px rgba(59, 130, 246, 0.3)'
+                      ? '0 0 20px rgba(147, 51, 234, 0.4), 0 0 40px rgba(147, 51, 234, 0.1)' 
+                      : '0 0 15px rgba(147, 51, 234, 0.3)'
                   }}
                 >
                   <FileText className="h-4 w-4" />

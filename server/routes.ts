@@ -1682,7 +1682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Email options
       const mailOptions = {
         from: process.env.GMAIL_USER,
-        to: 'brtbllcankir03@gmail.com',
+        to: 'beratkaccow03@gmail.com',
         subject: `Aylık Rapor: ${subject}`,
         text: `Merhaba,\n\nAylık akademik rapor ektedir.\n\nKonu: ${subject}\n\nNotlar:\n${note}\n\nİyi çalışmalar!`,
         html: `
@@ -1713,7 +1713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         message: "Rapor başarıyla gönderildi!",
-        sentTo: 'brtbllcankir03@gmail.com',
+        sentTo: 'beratkaccow03@gmail.com',
         subject: mailOptions.subject
       });
       
