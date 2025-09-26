@@ -1190,16 +1190,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to convert Turkish characters to ASCII equivalents for PDF
   const convertTurkishChars = (text: string): string => {
+    if (!text || typeof text !== 'string') return '';
+    
     const turkishMap: { [key: string]: string } = {
       'ç': 'c', 'Ç': 'C',
       'ğ': 'g', 'Ğ': 'G', 
       'ı': 'i', 'İ': 'I',
       'ö': 'o', 'Ö': 'O',
       'ş': 's', 'Ş': 'S',
-      'ü': 'u', 'Ü': 'U'
+      'ü': 'u', 'Ü': 'U',
+      // Additional characters that might cause issues
+      'â': 'a', 'Â': 'A',
+      'î': 'i', 'Î': 'I',
+      'û': 'u', 'Û': 'U'
     };
     
-    return text.replace(/[çÇğĞıİöÖşŞüÜ]/g, (match) => turkishMap[match] || match);
+    // More comprehensive replacement including any potential Unicode variants
+    return text
+      .replace(/[çÇğĞıİöÖşŞüÜâÂîÎûÛ]/g, (match) => turkishMap[match] || match)
+      // Extra safety: replace any remaining non-ASCII characters with safe equivalents
+      .replace(/[^\x00-\x7F]/g, (match) => {
+        // Log problematic characters for debugging
+        console.warn('Unconverted character in PDF:', match, match.charCodeAt(0));
+        return '?';
+      });
   };
 
   // PDF Report Email Endpoint
@@ -1414,7 +1428,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.tasks.slice(0, 10).forEach((task: any) => {
-          const taskText = convertTurkishChars(`• ${task.title} - ${task.category}`);
+          const safeTitle = convertTurkishChars(task.title || '');
+          const safeCategory = convertTurkishChars(task.category || '');
+          const taskText = convertTurkishChars(`• ${safeTitle} - ${safeCategory}`);
           if (yPosition > 50) {
             page.drawText(taskText.substring(0, 80), {
               x: 60,
@@ -1440,7 +1456,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.questionLogs.slice(0, 10).forEach((log: any) => {
-          const logText = convertTurkishChars(`• ${log.exam_type} - ${log.subject}: ${log.correct_count} doğru`);
+          const safeExamType = convertTurkishChars(log.exam_type || '');
+          const safeSubject = convertTurkishChars(log.subject || '');
+          const safeCorrectCount = convertTurkishChars(log.correct_count?.toString() || '0');
+          const logText = convertTurkishChars(`• ${safeExamType} - ${safeSubject}: ${safeCorrectCount} dogru`);
           if (yPosition > 50) {
             page.drawText(logText.substring(0, 80), {
               x: 60,
@@ -1466,7 +1485,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yPosition -= 20;
 
         activities.examResults.slice(0, 10).forEach((exam: any) => {
-          const examText = convertTurkishChars(`• ${exam.exam_name}: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}`);
+          const safeExamName = convertTurkishChars(exam.exam_name || '');
+          const safeTytNet = convertTurkishChars(exam.tyt_net?.toString() || '0');
+          const safeAytNet = convertTurkishChars(exam.ayt_net?.toString() || '0');
+          const examText = convertTurkishChars(`• ${safeExamName}: TYT ${safeTytNet} | AYT ${safeAytNet}`);
           if (yPosition > 50) {
             page.drawText(examText.substring(0, 80), {
               x: 60,
