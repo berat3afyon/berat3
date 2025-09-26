@@ -56,10 +56,10 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // PORT env varsa onu al, yoksa 5000
+  // Use port 5000 since backend serves frontend via Vite middleware
   const port = parseInt(process.env.PORT || "5000", 10);
 
-  server.listen(port, "127.0.0.1", () => {
-    log(`🚀 Server running at http://127.0.0.1:${port}`);
+  server.listen(port, "0.0.0.0", () => {
+    log(`🚀 Server running at http://0.0.0.0:${port}`);
   });
 })();
