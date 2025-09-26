@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertTaskSchema, insertMoodSchema, insertGoalSchema, insertQuestionLogSchema, insertExamResultSchema, insertFlashcardSchema, insertExamSubjectNetSchema } from "@shared/schema";
 import { z } from "zod";
 import dotenv from "dotenv";
+import { MailService } from '@sendgrid/mail';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 dotenv.config();
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1183,6 +1185,317 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('CSV export error:', error);
       res.status(500).json({ message: "Export failed" });
+    }
+  });
+
+  // PDF Report Email Endpoint
+  app.post("/api/send-report", async (req, res) => {
+    try {
+      const { month, date, activities, email } = req.body;
+
+      // Initialize SendGrid (but generate PDF regardless)
+      const hasApiKey = !!process.env.SENDGRID_API_KEY;
+      let sgMail: MailService | null = null;
+      
+      if (hasApiKey) {
+        sgMail = new MailService();
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+      }
+
+      // Generate HTML content for the PDF report
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Aylık Aktivite Raporu</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { color: #8B5CF6; margin-bottom: 10px; }
+                .summary { display: flex; justify-content: space-around; margin: 30px 0; }
+                .summary-card { text-align: center; padding: 20px; border-radius: 10px; margin: 0 10px; flex: 1; }
+                .summary-card.tasks { background-color: #F0FDF4; border: 2px solid #22C55E; }
+                .summary-card.questions { background-color: #EFF6FF; border: 2px solid #3B82F6; }
+                .summary-card.exams { background-color: #F3E8FF; border: 2px solid #8B5CF6; }
+                .summary-card.total { background-color: #FFFBEB; border: 2px solid #F59E0B; }
+                .summary-card h3 { font-size: 2em; margin: 0; }
+                .summary-card p { margin: 5px 0 0 0; font-weight: bold; }
+                .footer { text-align: center; margin-top: 40px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>📊 Aylık Aktivite Raporu</h1>
+                <p><strong>${month}</strong> - Rapor Tarihi: ${date}</p>
+                <p>Berat Çakıroğlu için hazırlanmıştır</p>
+            </div>
+            
+            <div class="summary">
+                <div class="summary-card tasks">
+                    <h3>${activities.tasks.length}</h3>
+                    <p>Tamamlanan Görev</p>
+                </div>
+                <div class="summary-card questions">
+                    <h3>${activities.questionLogs.length}</h3>
+                    <p>Çözülen Soru</p>
+                </div>
+                <div class="summary-card exams">
+                    <h3>${activities.examResults.length}</h3>
+                    <p>Yapılan Deneme</p>
+                </div>
+                <div class="summary-card total">
+                    <h3>${activities.total}</h3>
+                    <p>Toplam Aktivite</p>
+                </div>
+            </div>
+
+            ${activities.tasks.length > 0 ? `
+            <div style="margin: 30px 0;">
+                <h2 style="color: #22C55E;">✅ Tamamlanan Görevler</h2>
+                <ul>
+                    ${activities.tasks.map((task: any) => `
+                        <li><strong>${task.title}</strong> - ${task.category} 
+                            ${task.completedAt ? `(${new Date(task.completedAt).toLocaleDateString('tr-TR')})` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${activities.questionLogs.length > 0 ? `
+            <div style="margin: 30px 0;">
+                <h2 style="color: #3B82F6;">📝 Çözülen Sorular</h2>
+                <ul>
+                    ${activities.questionLogs.map((log: any) => `
+                        <li><strong>${log.exam_type} - ${log.subject}</strong>: ${log.correct_count} doğru / ${log.total_questions} soru
+                            (${new Date(log.study_date).toLocaleDateString('tr-TR')})
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            ${activities.examResults.length > 0 ? `
+            <div style="margin: 30px 0;">
+                <h2 style="color: #8B5CF6;">🎯 Yapılan Denemeler</h2>
+                <ul>
+                    ${activities.examResults.map((exam: any) => `
+                        <li><strong>${exam.exam_name}</strong>: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}
+                            (${new Date(exam.exam_date).toLocaleDateString('tr-TR')})
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            <div class="footer">
+                <p>Bu rapor TYT/AYT Takip Uygulaması tarafından otomatik olarak oluşturulmuştur.</p>
+                <p>📧 Rapor ${new Date().toLocaleDateString('tr-TR', { 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })} tarihinde gönderilmiştir.</p>
+            </div>
+        </body>
+        </html>
+      `;
+
+      // Generate PDF
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([595, 842]); // A4 size
+      const { width, height } = page.getSize();
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // PDF Content
+      let yPosition = height - 50;
+      
+      // Header
+      page.drawText('📊 Aylık Aktivite Raporu', {
+        x: 50,
+        y: yPosition,
+        size: 24,
+        font: helveticaBoldFont,
+        color: rgb(0.545, 0.361, 0.965), // Purple color
+      });
+      yPosition -= 40;
+      
+      page.drawText(`${month} - Rapor Tarihi: ${date}`, {
+        x: 50,
+        y: yPosition,
+        size: 14,
+        font: helveticaFont,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      yPosition -= 20;
+      
+      page.drawText('Berat Çakıroğlu için hazırlanmıştır', {
+        x: 50,
+        y: yPosition,
+        size: 12,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      yPosition -= 50;
+
+      // Activity Summary
+      page.drawText('Aktivite Özeti', {
+        x: 50,
+        y: yPosition,
+        size: 18,
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= 30;
+
+      const summaryData = [
+        { label: 'Tamamlanan Görev', value: activities.tasks.length, color: rgb(0.133, 0.773, 0.369) },
+        { label: 'Çözülen Soru', value: activities.questionLogs.length, color: rgb(0.231, 0.510, 0.961) },
+        { label: 'Yapılan Deneme', value: activities.examResults.length, color: rgb(0.545, 0.361, 0.965) },
+        { label: 'Toplam Aktivite', value: activities.total, color: rgb(0.961, 0.620, 0.043) }
+      ];
+
+      summaryData.forEach((item, index) => {
+        const xPos = 50 + (index * 130);
+        page.drawRectangle({
+          x: xPos,
+          y: yPosition - 40,
+          width: 120,
+          height: 60,
+          borderColor: item.color,
+          borderWidth: 2,
+        });
+        
+        page.drawText(item.value.toString(), {
+          x: xPos + 50,
+          y: yPosition - 15,
+          size: 20,
+          font: helveticaBoldFont,
+          color: item.color,
+        });
+        
+        page.drawText(item.label, {
+          x: xPos + 10,
+          y: yPosition - 35,
+          size: 10,
+          font: helveticaFont,
+          color: rgb(0, 0, 0),
+        });
+      });
+      yPosition -= 80;
+
+      // Detailed sections
+      if (activities.tasks.length > 0) {
+        yPosition -= 20;
+        page.drawText('✅ Tamamlanan Görevler', {
+          x: 50,
+          y: yPosition,
+          size: 16,
+          font: helveticaBoldFont,
+          color: rgb(0.133, 0.773, 0.369),
+        });
+        yPosition -= 20;
+
+        activities.tasks.slice(0, 10).forEach((task: any) => {
+          const taskText = `• ${task.title} - ${task.category}`;
+          if (yPosition > 50) {
+            page.drawText(taskText.substring(0, 80), {
+              x: 60,
+              y: yPosition,
+              size: 10,
+              font: helveticaFont,
+              color: rgb(0, 0, 0),
+            });
+            yPosition -= 15;
+          }
+        });
+      }
+
+      if (activities.questionLogs.length > 0 && yPosition > 100) {
+        yPosition -= 20;
+        page.drawText('📝 Çözülen Sorular', {
+          x: 50,
+          y: yPosition,
+          size: 16,
+          font: helveticaBoldFont,
+          color: rgb(0.231, 0.510, 0.961),
+        });
+        yPosition -= 20;
+
+        activities.questionLogs.slice(0, 10).forEach((log: any) => {
+          const logText = `• ${log.exam_type} - ${log.subject}: ${log.correct_count} doğru`;
+          if (yPosition > 50) {
+            page.drawText(logText.substring(0, 80), {
+              x: 60,
+              y: yPosition,
+              size: 10,
+              font: helveticaFont,
+              color: rgb(0, 0, 0),
+            });
+            yPosition -= 15;
+          }
+        });
+      }
+
+      if (activities.examResults.length > 0 && yPosition > 100) {
+        yPosition -= 20;
+        page.drawText('🎯 Yapılan Denemeler', {
+          x: 50,
+          y: yPosition,
+          size: 16,
+          font: helveticaBoldFont,
+          color: rgb(0.545, 0.361, 0.965),
+        });
+        yPosition -= 20;
+
+        activities.examResults.slice(0, 10).forEach((exam: any) => {
+          const examText = `• ${exam.exam_name}: TYT ${exam.tyt_net} | AYT ${exam.ayt_net}`;
+          if (yPosition > 50) {
+            page.drawText(examText.substring(0, 80), {
+              x: 60,
+              y: yPosition,
+              size: 10,
+              font: helveticaFont,
+              color: rgb(0, 0, 0),
+            });
+            yPosition -= 15;
+          }
+        });
+      }
+
+      const pdfBytes = await pdfDoc.save();
+
+      // Email message with PDF attachment
+      const msg = {
+        to: email,
+        from: 'noreply@tytayt.app', // Replace with your verified sender
+        subject: `📊 ${month} Aylık Aktivite Raporu - TYT/AYT Takip`,
+        html: htmlContent,
+        text: `${month} Aylık Aktivite Raporu\n\nToplam Aktivite: ${activities.total}\n- Tamamlanan Görev: ${activities.tasks.length}\n- Çözülen Soru: ${activities.questionLogs.length}\n- Yapılan Deneme: ${activities.examResults.length}\n\nDetaylı rapor için ekteki PDF dosyasını kontrol edin.`,
+        attachments: [
+          {
+            content: Buffer.from(pdfBytes).toString('base64'),
+            filename: `${month.replace(' ', '-')}-Aktivite-Raporu.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment',
+          },
+        ],
+      };
+
+      if (sgMail) {
+        await sgMail.send(msg);
+        console.log(`Report email with PDF sent successfully to ${email}`);
+        res.json({ message: "Report email with PDF sent successfully" });
+      } else {
+        console.log('SendGrid API key not found, PDF generated but email simulated');
+        res.json({ message: "PDF report generated, email simulated (no API key)" });
+      }
+    } catch (error) {
+      console.error('Email sending error:', error);
+      res.status(500).json({ message: "Failed to send report email" });
     }
   });
 
