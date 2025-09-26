@@ -56,38 +56,38 @@ function CenteredWelcomeSection() {
         </h1>
       </div>
       
-      {/* Horizontal Clock and Date Display */}
-      <div className="flex items-center justify-center space-x-8">
-        {/* Enhanced Clock Icon with Glassmorphism - Left Side */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 via-violet-600/30 to-black/40 rounded-3xl blur-2xl animate-pulse"></div>
-          <div className="relative w-20 h-20 bg-black/10 dark:bg-purple-950/20 backdrop-blur-xl border border-purple-500/20 dark:border-purple-400/20 rounded-3xl flex items-center justify-center shadow-2xl">
-            <Clock className="h-10 w-10 text-purple-600 dark:text-purple-400 drop-shadow-lg" />
+      {/* Centered Clock and Time Display */}
+      <div className="flex flex-col items-center space-y-6">
+        {/* Time and Clock Container - Centered with Clock Icon Above */}
+        <div className="flex items-center justify-center space-x-6">
+          {/* Enhanced Clock Icon with Glassmorphism - Centered and Moved Up */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 via-violet-600/30 to-black/40 rounded-3xl blur-2xl animate-pulse"></div>
+            <div className="relative w-20 h-20 bg-black/10 dark:bg-purple-950/20 backdrop-blur-xl border border-purple-500/20 dark:border-purple-400/20 rounded-3xl flex items-center justify-center shadow-2xl transform -translate-y-2">
+              <Clock className="h-10 w-10 text-purple-600 dark:text-purple-400 drop-shadow-lg" />
+            </div>
           </div>
-        </div>
-        
-        {/* Time and Date Container - Right Side */}
-        <div className="flex flex-col items-center space-y-4">
+          
           {/* Enhanced Time Display with Purple-Black Gradient */}
           <div className="text-8xl font-black bg-gradient-to-r from-purple-600 via-violet-700 to-black dark:from-purple-400 dark:via-violet-500 dark:to-gray-300 bg-clip-text text-transparent font-mono tracking-tighter drop-shadow-lg" data-testid="text-time-center">
             {timeStr}
           </div>
-          
-          {/* Stylized Date and Location with Purple-Black Theme */}
-          <div className="flex items-center space-x-4 text-2xl font-semibold">
-            <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-violet-600 shadow-lg animate-pulse"></div>
-              <span className="bg-gradient-to-r from-purple-800 to-black dark:from-purple-300 dark:to-gray-200 bg-clip-text text-transparent font-bold" data-testid="text-date-center">
-                {dateStr}
-              </span>
-            </div>
-            <span className="text-muted-foreground/50">•</span>
-            <div className="flex items-center space-x-2 text-muted-foreground">
-              <span className="text-lg">📍</span>
-              <span className="font-bold bg-gradient-to-r from-purple-600 to-violet-700 dark:from-purple-400 dark:to-violet-500 bg-clip-text text-transparent">
-                Sakarya, Serdivan
-              </span>
-            </div>
+        </div>
+        
+        {/* Stylized Date and Location - Left Aligned and Centered */}
+        <div className="flex items-center justify-center space-x-4 text-2xl font-semibold">
+          <div className="flex items-center space-x-3">
+            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-violet-600 shadow-lg animate-pulse"></div>
+            <span className="bg-gradient-to-r from-purple-800 to-black dark:from-purple-300 dark:to-gray-200 bg-clip-text text-transparent font-bold" data-testid="text-date-center">
+              {dateStr}
+            </span>
+          </div>
+          <span className="text-muted-foreground/50">•</span>
+          <div className="flex items-center space-x-2 text-muted-foreground">
+            <span className="text-lg">📍</span>
+            <span className="font-bold bg-gradient-to-r from-purple-600 to-violet-700 dark:from-purple-400 dark:to-violet-500 bg-clip-text text-transparent">
+              Sakarya, Serdivan
+            </span>
           </div>
         </div>
       </div>
