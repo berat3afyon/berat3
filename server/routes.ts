@@ -6,6 +6,7 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import { MailService } from '@sendgrid/mail';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import nodemailer from 'nodemailer';
 dotenv.config();
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1536,6 +1537,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Email sending error:', error);
       res.status(500).json({ message: "Failed to send report email" });
+    }
+  });
+
+  // Email sending endpoint for PDF reports
+  app.post("/api/send-report", async (req, res) => {
+    try {
+      const { subject, note, reportData } = req.body;
+      
+      // Validate required fields
+      if (!subject || !note) {
+        return res.status(400).json({ message: "Subject and note are required" });
+      }
+
+      // Create Gmail transporter
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+
+      // Generate PDF report
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([595, 842]); // A4 size
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      // Add content to PDF
+      page.drawText('Aylık Akademik Rapor', {
+        x: 50,
+        y: 750,
+        size: 24,
+        font: boldFont,
+        color: rgb(0.2, 0.1, 0.6)
+      });
+      
+      page.drawText('Berat Çakıroğlu', {
+        x: 50,
+        y: 720,
+        size: 16,
+        font: font,
+        color: rgb(0, 0, 0)
+      });
+      
+      page.drawText(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, {
+        x: 50,
+        y: 690,
+        size: 12,
+        font: font,
+        color: rgb(0.4, 0.4, 0.4)
+      });
+      
+      page.drawText('Konu:', {
+        x: 50,
+        y: 650,
+        size: 14,
+        font: boldFont,
+        color: rgb(0, 0, 0)
+      });
+      
+      page.drawText(subject, {
+        x: 50,
+        y: 630,
+        size: 12,
+        font: font,
+        color: rgb(0, 0, 0)
+      });
+      
+      page.drawText('Notlar:', {
+        x: 50,
+        y: 590,
+        size: 14,
+        font: boldFont,
+        color: rgb(0, 0, 0)
+      });
+      
+      // Split note into lines if too long
+      const noteLines = note.match(/.{1,80}/g) || [note];
+      let yPos = 570;
+      noteLines.forEach((line: string) => {
+        page.drawText(line, {
+          x: 50,
+          y: yPos,
+          size: 12,
+          font: font,
+          color: rgb(0, 0, 0)
+        });
+        yPos -= 20;
+      });
+
+      // Add additional report content if provided
+      if (reportData && reportData.activities) {
+        yPos -= 20;
+        page.drawText('Aktivite Özeti:', {
+          x: 50,
+          y: yPos,
+          size: 14,
+          font: boldFont,
+          color: rgb(0, 0, 0)
+        });
+        
+        yPos -= 25;
+        page.drawText(`Toplam Görev: ${reportData.activities.tasks?.length || 0}`, {
+          x: 50,
+          y: yPos,
+          size: 12,
+          font: font,
+          color: rgb(0, 0, 0)
+        });
+        
+        yPos -= 20;
+        page.drawText(`Soru Çözümleri: ${reportData.activities.questionLogs?.length || 0}`, {
+          x: 50,
+          y: yPos,
+          size: 12,
+          font: font,
+          color: rgb(0, 0, 0)
+        });
+        
+        yPos -= 20;
+        page.drawText(`Deneme Sınavları: ${reportData.activities.examResults?.length || 0}`, {
+          x: 50,
+          y: yPos,
+          size: 12,
+          font: font,
+          color: rgb(0, 0, 0)
+        });
+      }
+
+      // Add footer
+      page.drawText('Bu rapor otomatik olarak oluşturulmuştur.', {
+        x: 50,
+        y: 50,
+        size: 10,
+        font: font,
+        color: rgb(0.6, 0.6, 0.6)
+      });
+
+      // Generate PDF bytes
+      const pdfBytes = await pdfDoc.save();
+
+      // Email options
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: 'brtbllcankir03@gmail.com',
+        subject: `Aylık Rapor: ${subject}`,
+        text: `Merhaba,\n\nAylık akademik rapor ektedir.\n\nKonu: ${subject}\n\nNotlar:\n${note}\n\nİyi çalışmalar!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #7c3aed;">Aylık Akademik Rapor</h2>
+            <p>Merhaba,</p>
+            <p>Aylık akademik rapor ektedir.</p>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #374151; margin-bottom: 10px;">Konu:</h3>
+              <p style="color: #6b7280;">${subject}</p>
+              <h3 style="color: #374151; margin-bottom: 10px;">Notlar:</h3>
+              <p style="color: #6b7280; white-space: pre-wrap;">${note}</p>
+            </div>
+            <p>İyi çalışmalar!</p>
+            <p style="color: #9ca3af; font-size: 14px;">Bu e-posta otomatik olarak gönderilmiştir.</p>
+          </div>
+        `,
+        attachments: [
+          {
+            filename: `rapor-${new Date().toISOString().split('T')[0]}.pdf`,
+            content: Buffer.from(pdfBytes)
+          }
+        ]
+      };
+
+      // Send email
+      await transporter.sendMail(mailOptions);
+      
+      res.json({ 
+        message: "Rapor başarıyla gönderildi!",
+        sentTo: 'brtbllcankir03@gmail.com',
+        subject: mailOptions.subject
+      });
+      
+    } catch (error: any) {
+      console.error('Email sending error:', error);
+      res.status(500).json({ 
+        message: "E-posta gönderilirken hata oluştu",
+        error: error?.message || "Bilinmeyen hata"
+      });
     }
   });
 

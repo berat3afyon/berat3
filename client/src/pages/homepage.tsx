@@ -4,12 +4,17 @@ import { EnhancedWeatherWidget } from "@/components/enhanced-weather-widget";
 import { CountdownWidget } from "@/components/countdown-widget";
 import { TodaysTasksWidget } from "@/components/todays-tasks-widget";
 import { Calendar, TrendingUp, Clock, ChevronLeft, ChevronRight, Mail, Zap, FileText, Send } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Task, QuestionLog, ExamResult } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 // Centered Welcome Section Component with Clock
 function CenteredWelcomeSection() {
@@ -62,12 +67,12 @@ function CenteredWelcomeSection() {
       {/* Centered Clock and Time Display */}
       <div className="flex flex-col items-center space-y-6">
         {/* Time and Clock Container - Perfectly Centered */}
-        <div className="flex items-center justify-center transform -translate-x-8">
-          {/* Enhanced Clock Icon with Glassmorphism - Positioned Left */}
-          <div className="relative mr-4">
+        <div className="flex items-center justify-center space-x-6">
+          {/* Enhanced Clock Icon with Glassmorphism - Centered with Time */}
+          <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 via-violet-600/30 to-black/40 rounded-3xl blur-2xl animate-pulse"></div>
-            <div className="relative w-16 h-16 bg-black/10 dark:bg-purple-950/20 backdrop-blur-xl border border-purple-500/20 dark:border-purple-400/20 rounded-3xl flex items-center justify-center shadow-2xl transform -translate-y-2">
-              <Clock className="h-9 w-9 text-purple-600 dark:text-purple-400 drop-shadow-lg" />
+            <div className="relative w-20 h-20 bg-black/10 dark:bg-purple-950/20 backdrop-blur-xl border border-purple-500/20 dark:border-purple-400/20 rounded-3xl flex items-center justify-center shadow-2xl">
+              <Clock className="h-12 w-12 text-purple-600 dark:text-purple-400 drop-shadow-lg" />
             </div>
           </div>
           
@@ -109,6 +114,48 @@ export default function Homepage() {
   // Report modal states
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportActivated, setReportActivated] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailNote, setEmailNote] = useState("");
+  
+  const { toast } = useToast();
+
+  // Email sending mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (data: { subject: string; note: string; reportData?: any }) => {
+      const response = await fetch("/api/send-report", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "E-posta gönderilemedi");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (response) => {
+      toast({
+        title: "Başarılı!",
+        description: response.message || "Rapor başarıyla gönderildi!",
+        duration: 5000,
+      });
+      setShowReportModal(false);
+      setEmailSubject("");
+      setEmailNote("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata!",
+        description: error?.message || "E-posta gönderilirken hata oluştu.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    },
+  });
 
   const { data: calendarData } = useQuery<{
     date: string;
@@ -257,6 +304,37 @@ export default function Homepage() {
     const day = date.getDate().toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
     setSelectedDate(dateStr);
+  };
+
+  const handleSendEmail = () => {
+    if (!emailSubject.trim()) {
+      toast({
+        title: "Hata!",
+        description: "Lütfen bir konu girin.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!emailNote.trim()) {
+      toast({
+        title: "Hata!",
+        description: "Lütfen notlarınızı girin.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get current month activities for the report
+    const currentMonthActivities = getMonthlyActivities(new Date());
+
+    sendEmailMutation.mutate({
+      subject: emailSubject,
+      note: emailNote,
+      reportData: {
+        activities: currentMonthActivities
+      }
+    });
   };
 
   return (
@@ -692,65 +770,81 @@ export default function Homepage() {
                     <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-4 border border-border/30">
                       <div className="flex items-center mb-4">
                         <Mail className="h-5 w-5 text-purple-600 mr-2" />
-                        <span className="font-semibold text-foreground">Şu adrese rapor gönderiliyor:</span>
+                        <span className="font-semibold text-foreground">Rapor Gönderimi</span>
                       </div>
                       
-                      <div className="relative">
-                        <Input
-                          type="email"
-                          value="brtbllcankir03@gmail.com"
-                          disabled
-                          className="bg-muted/50 text-muted-foreground cursor-not-allowed pr-12"
-                          data-testid="input-email-locked"
-                        />
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          <div className="w-4 h-4 text-muted-foreground/50">🔒</div>
+                      <div className="space-y-4">
+                        {/* Email Address */}
+                        <div>
+                          <Label htmlFor="email-address" className="text-sm font-medium text-muted-foreground mb-1 block">
+                            Gönderilecek Adres
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              id="email-address"
+                              type="email"
+                              value="brtbllcankir03@gmail.com"
+                              disabled
+                              className="bg-muted/50 text-muted-foreground cursor-not-allowed pr-12"
+                              data-testid="input-email-locked"
+                            />
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                              <div className="w-4 h-4 text-muted-foreground/50">🔒</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Subject Field */}
+                        <div>
+                          <Label htmlFor="email-subject" className="text-sm font-medium text-muted-foreground mb-1 block">
+                            Konu *
+                          </Label>
+                          <Input
+                            id="email-subject"
+                            type="text"
+                            placeholder="Rapor konusu girin..."
+                            value={emailSubject}
+                            onChange={(e) => setEmailSubject(e.target.value)}
+                            className="w-full"
+                            data-testid="input-email-subject"
+                          />
+                        </div>
+
+                        {/* Note Field */}
+                        <div>
+                          <Label htmlFor="email-note" className="text-sm font-medium text-muted-foreground mb-1 block">
+                            Notlar *
+                          </Label>
+                          <Textarea
+                            id="email-note"
+                            placeholder="Rapor hakkında notlarınızı girin..."
+                            value={emailNote}
+                            onChange={(e) => setEmailNote(e.target.value)}
+                            rows={3}
+                            className="w-full resize-none"
+                            data-testid="textarea-email-note"
+                          />
                         </div>
                       </div>
                       
-                      <div className="flex justify-end mt-4">
+                      <div className="flex justify-end mt-6">
                         <Button
-                          onClick={async () => {
-                            try {
-                              // Generate PDF content
-                              const reportData = {
-                                month: new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }),
-                                date: new Date().toLocaleDateString('tr-TR'),
-                                activities: monthlyActivities,
-                                email: 'brtbllcankir03@gmail.com'
-                              };
-
-                              // Simulate PDF generation and email sending
-                              const response = await fetch('/api/send-report', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(reportData),
-                              });
-
-                              if (response.ok) {
-                                alert('📧 Rapor PDF olarak email adresinize gönderildi!');
-                                setShowReportModal(false);
-                                setReportActivated(false);
-                              } else {
-                                // Fallback if API fails
-                                alert('📧 Rapor başarıyla hazırlandı ve email adresinize gönderildi!');
-                                setShowReportModal(false);
-                                setReportActivated(false);
-                              }
-                            } catch (error) {
-                              // Fallback on error
-                              alert('📧 Rapor başarıyla hazırlandı ve email adresinize gönderildi!');
-                              setShowReportModal(false);
-                              setReportActivated(false);
-                            }
-                          }}
-                          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-300"
+                          onClick={handleSendEmail}
+                          disabled={sendEmailMutation.isPending}
+                          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-300 disabled:opacity-50"
                           data-testid="button-send-report"
                         >
-                          <Send className="h-4 w-4 mr-2" />
-                          Raporu Gönder
+                          {sendEmailMutation.isPending ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                              Gönderiliyor...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Raporu Gönder
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -761,6 +855,15 @@ export default function Homepage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Copyright Footer */}
+      <footer className="bg-muted/30 border-t border-border mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-sm text-muted-foreground">
+            © {new Date().getFullYear()} Berat Bilal Çakıroğlu. Tüm hakları saklıdır.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
