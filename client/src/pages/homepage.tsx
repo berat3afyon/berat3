@@ -760,7 +760,7 @@ export default function Homepage() {
                       </div>
                       
                       <div className="space-y-4">
-                        {/* Email Address */}
+                        {/* Email Address - Configured Securely */}
                         <div>
                           <Label htmlFor="email-address" className="text-sm font-medium text-muted-foreground mb-1 block">
                             Gönderilecek Adres
@@ -769,13 +769,13 @@ export default function Homepage() {
                             <Input
                               id="email-address"
                               type="email"
-                              value="brtbllcankir03@gmail.com"
+                              value="Güvenli şekilde yapılandırılmış"
                               disabled
                               className="bg-muted/50 text-muted-foreground cursor-not-allowed pr-12"
-                              data-testid="input-email-locked"
+                              data-testid="input-email-configured"
                             />
                             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                              <div className="w-4 h-4 text-muted-foreground/50">🔒</div>
+                              <div className="w-4 h-4 text-green-500">✓</div>
                             </div>
                           </div>
                         </div>
